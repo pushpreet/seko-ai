@@ -14,7 +14,8 @@ from seko_ai.config import Settings
 from seko_ai.db import get_session
 from seko_ai.deps import get_current_db_user, get_litellm_client, get_workspace_service
 from seko_ai.logging_config import get_logger
-from seko_ai.models import User, Workspace
+from seko_ai.models import BackupTrigger, User, Workspace
+from seko_ai.services import backups as backups_service
 from seko_ai.services.litellm_client import LiteLLMClient
 from seko_ai.services.workspaces import WorkspaceError, WorkspaceService
 
@@ -35,12 +36,16 @@ def _panel(
     user_id: int,
     *,
     error: str | None = None,
+    notice: str | None = None,
 ) -> HTMLResponse:
     workspaces = svc.list_workspaces(session, user_id)
     rows = [(ws, svc.ssh_command(ws)) for ws in workspaces]
     status_code = 400 if error else 200
     return _templates().TemplateResponse(
-        request, "_workspaces_panel.html", {"rows": rows, "error": error}, status_code=status_code
+        request,
+        "_workspaces_panel.html",
+        {"rows": rows, "error": error, "notice": notice},
+        status_code=status_code,
     )
 
 
@@ -120,15 +125,37 @@ def start_workspace(
     return _panel(request, svc, session, user.id)
 
 
+@router.post("/{workspace_id}/backup", response_class=HTMLResponse)
+def backup_workspace(
+    request: Request,
+    workspace_id: int,
+    user: User = Depends(get_current_db_user),  # noqa: B008
+    session: Session = Depends(get_session),  # noqa: B008
+    svc: WorkspaceService = Depends(get_workspace_service),  # noqa: B008
+) -> HTMLResponse:
+    """Take an on-demand restic backup of the workspace's encrypted volume."""
+    ws = _owned_workspace(session, user, workspace_id)
+    backup = backups_service.backup_workspace(
+        session, svc.backend, ws, BackupTrigger.MANUAL
+    )
+    if not backup.succeeded:
+        return _panel(request, svc, session, user.id, error="Backup failed. Please try again.")
+    return _panel(request, svc, session, user.id, notice="Backup complete.")
+
+
 @router.post("/{workspace_id}/terminate", response_class=HTMLResponse)
 async def terminate_workspace(
     request: Request,
     workspace_id: int,
+    backup: Annotated[str, Form()] = "",
     user: User = Depends(get_current_db_user),  # noqa: B008
     session: Session = Depends(get_session),  # noqa: B008
     svc: WorkspaceService = Depends(get_workspace_service),  # noqa: B008
     litellm: LiteLLMClient = Depends(get_litellm_client),  # noqa: B008
 ) -> HTMLResponse:
     ws = _owned_workspace(session, user, workspace_id)
+    # The UI prompts the user to back up on terminate; honor an opt-in final snapshot.
+    if backup == "1":
+        backups_service.backup_workspace(session, svc.backend, ws, BackupTrigger.ON_TERMINATE)
     await svc.terminate_workspace(session, litellm, ws)
     return _panel(request, svc, session, user.id)

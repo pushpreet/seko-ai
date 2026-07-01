@@ -10,13 +10,14 @@ the pure helpers here (``build_run_kwargs``, ``parse_ssh_target``) are unit-test
 
 from __future__ import annotations
 
+import json
 import shlex
 import subprocess
 from typing import Any
 from urllib.parse import urlparse
 
 from seko_ai.logging_config import get_logger
-from seko_ai.services.workspaces import ContainerInfo, WorkspaceSpec
+from seko_ai.services.workspaces import BackupResult, ContainerInfo, WorkspaceSpec
 
 log = get_logger("seko_ai.docker_backend")
 
@@ -60,9 +61,18 @@ def build_run_kwargs(spec: WorkspaceSpec) -> dict[str, Any]:
 class DockerBackend:
     """Concrete :class:`~seko_ai.services.workspaces.ContainerBackend` for epyc."""
 
-    def __init__(self, docker_host: str, *, ssh_target: str | None = None) -> None:
+    def __init__(
+        self,
+        docker_host: str,
+        *,
+        ssh_target: str | None = None,
+        restic_repository: str = "",
+        restic_password: str = "",
+    ) -> None:
         self._docker_host = docker_host
         self._ssh_target = ssh_target or parse_ssh_target(docker_host)
+        self._restic_repository = restic_repository
+        self._restic_password = restic_password
         self._client: Any = None
 
     def _client_lazy(self) -> Any:  # pragma: no cover - requires a Docker daemon
@@ -136,3 +146,35 @@ class DockerBackend:
         except Exception:
             return None
         return ContainerInfo(name=name, status=container.status)
+
+    # --- restic backup/restore (ciphertext volumes -> NAS repo) ---
+
+    def _restic_env(self) -> dict[str, str]:  # pragma: no cover
+        return {
+            "RESTIC_REPOSITORY": self._restic_repository,
+            "RESTIC_PASSWORD": self._restic_password,
+        }
+
+    def backup_volume(self, cipher_path: str, tags: list[str]) -> BackupResult:  # pragma: no cover
+        env = " ".join(f"{k}={shlex.quote(v)}" for k, v in self._restic_env().items())
+        tag_args = " ".join(f"--tag {shlex.quote(t)}" for t in tags)
+        cmd = (
+            f"{env} restic backup --json {tag_args} {shlex.quote(cipher_path)} "
+            f"| tail -n1"
+        )
+        out = self._host_exec(["sh", "-c", cmd])
+        summary = json.loads(out) if out.strip() else {}
+        return BackupResult(
+            snapshot_id=summary.get("snapshot_id", ""),
+            size_bytes=summary.get("total_bytes_processed"),
+        )
+
+    def restore_snapshot(self, snapshot_id: str, dest_cipher_path: str) -> None:  # pragma: no cover
+        env = " ".join(f"{k}={shlex.quote(v)}" for k, v in self._restic_env().items())
+        # Restore the snapshot's contents directly into the destination cipher dir.
+        cmd = (
+            f"mkdir -p {shlex.quote(dest_cipher_path)} && "
+            f"{env} restic restore {shlex.quote(snapshot_id)} "
+            f"--target {shlex.quote(dest_cipher_path)} --include / "
+        )
+        self._host_exec(["sh", "-c", cmd])

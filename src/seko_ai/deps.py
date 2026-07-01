@@ -42,7 +42,11 @@ def get_container_backend(request: Request) -> ContainerBackend:
         from seko_ai.services.docker_backend import DockerBackend
 
         settings = get_app_settings(request)
-        backend = DockerBackend(settings.docker_host)
+        backend = DockerBackend(
+            settings.docker_host,
+            restic_repository=settings.restic_repository,
+            restic_password=settings.restic_password,
+        )
         request.app.state.container_backend = backend
     return backend
 

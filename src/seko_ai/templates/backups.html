@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; backups{% endblock %}
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Backups</h1>
+    <p class="mt-1 text-sm text-slate-400">
+      Encrypted snapshots of your workspace data. Restore recreates a fresh workspace with
+      the snapshot's contents.
+    </p>
+  </div>
+  <div id="backups-list">
+    {% include "_backups_list.html" %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,29 @@
+{# Swappable list of a user's backups. `backups` = list of Backup. #}
+<div>
+  {% if error %}
+    <div class="mb-3 rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
+  {% elif restored %}
+    <div class="mb-3 rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+      Restored into a new workspace. See <a href="/workspaces" class="underline">Workspaces</a>.
+    </div>
+  {% endif %}
+
+  {% if backups %}
+    <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800">
+      {% for b in backups %}
+        <li class="flex items-center justify-between p-3 text-sm">
+          <div>
+            <span class="font-medium">{{ b.workspace.name }}</span>
+            <span class="ml-2 text-xs text-slate-500">{{ b.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+            <span class="ml-2 rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{{ b.trigger.value }}</span>
+          </div>
+          <button class="rounded bg-sky-600 px-2 py-1 text-xs font-medium hover:bg-sky-500"
+            hx-post="/backups/{{ b.id }}/restore" hx-target="#backups-list"
+            hx-confirm="Restore this snapshot into a new workspace?">Restore</button>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="rounded-lg border border-slate-800 p-3 text-sm text-slate-400">No backups yet.</p>
+  {% endif %}
+</div>

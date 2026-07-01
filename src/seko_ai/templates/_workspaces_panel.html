@@ -2,6 +2,8 @@
 <div>
   {% if error %}
     <div class="mb-3 rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
+  {% elif notice %}
+    <div class="mb-3 rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">{{ notice }}</div>
   {% endif %}
 
   {% if rows %}
@@ -22,9 +24,13 @@
                 <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
                   hx-post="/workspaces/{{ ws.id }}/start" hx-target="#workspaces-panel">Start</button>
               {% endif %}
+              <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
+                hx-post="/workspaces/{{ ws.id }}/backup" hx-target="#workspaces-panel">Back up</button>
               <button class="rounded bg-rose-900/70 px-2 py-1 text-xs text-rose-200 hover:bg-rose-800"
-                hx-post="/workspaces/{{ ws.id }}/terminate" hx-target="#workspaces-panel"
-                hx-confirm="Terminate this workspace? Back up first if you need the data.">Terminate</button>
+                hx-post="/workspaces/{{ ws.id }}/terminate"
+                hx-vals='{"backup": "1"}'
+                hx-target="#workspaces-panel"
+                hx-confirm="Terminate this workspace? OK also takes a final backup you can restore later.">Terminate</button>
             </div>
           </div>
           {% if ws.status.value == "running" and ws.ssh_port %}

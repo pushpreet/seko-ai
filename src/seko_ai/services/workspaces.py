@@ -11,16 +11,21 @@ from __future__ import annotations
 import contextlib
 import uuid
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Protocol, runtime_checkable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from seko_ai.config import Settings
-from seko_ai.models import User, Workspace, WorkspaceStatus
+from seko_ai.models import Backup, User, Workspace, WorkspaceStatus
 from seko_ai.services import crypto
 from seko_ai.services import keys as keys_service
 from seko_ai.services.litellm_client import LiteLLMClient
+
+
+def _utcnow() -> datetime:
+    return datetime.now(UTC)
 
 
 class WorkspaceError(RuntimeError):
@@ -78,6 +83,20 @@ class ContainerBackend(Protocol):
     def remove(self, name: str) -> None: ...
 
     def get(self, name: str) -> ContainerInfo | None: ...
+
+    def backup_volume(self, cipher_path: str, tags: list[str]) -> BackupResult:
+        """Snapshot the ciphertext volume with restic; returns the snapshot id + size."""
+
+    def restore_snapshot(self, snapshot_id: str, dest_cipher_path: str) -> None:
+        """Restore a restic snapshot's ciphertext into ``dest_cipher_path``."""
+
+
+@dataclass(frozen=True)
+class BackupResult:
+    """Outcome of a restic snapshot."""
+
+    snapshot_id: str
+    size_bytes: int | None = None
 
 
 OWNER_LABEL = "ai.seko.owner"
@@ -153,6 +172,42 @@ class WorkspaceService:
         harness: str = "pi",
     ) -> Workspace:
         """Provision an encrypted home, mint a workspace key, and start the container."""
+        return await self._provision(session, litellm, user, name=name, harness=harness)
+
+    async def restore_workspace(
+        self,
+        session: Session,
+        litellm: LiteLLMClient,
+        user: User,
+        backup: Backup,
+        *,
+        name: str | None = None,
+    ) -> Workspace:
+        """Recreate a workspace from a backup snapshot.
+
+        The snapshot is the ciphertext home, encrypted with the user's stable DEK, so the
+        same DEK re-mounts it after restore.
+        """
+        restore_name = name or f"{backup.workspace.name} (restored)"
+        return await self._provision(
+            session,
+            litellm,
+            user,
+            name=restore_name,
+            harness=backup.workspace.harness,
+            restore_snapshot_id=backup.snapshot_id,
+        )
+
+    async def _provision(
+        self,
+        session: Session,
+        litellm: LiteLLMClient,
+        user: User,
+        *,
+        name: str,
+        harness: str = "pi",
+        restore_snapshot_id: str | None = None,
+    ) -> Workspace:
         if not user.ssh_public_key:
             raise WorkspaceError("Add an SSH public key to your profile before launching.")
         active = self._active_workspaces(session, user.id)
@@ -185,6 +240,8 @@ class WorkspaceService:
 
         dek = self.ensure_user_dek(session, user)
         try:
+            if restore_snapshot_id is not None:
+                self.backend.restore_snapshot(restore_snapshot_id, f"{volume_path}/cipher")
             self.backend.provision_home(volume_path, crypto.dek_passphrase(dek))
             self.backend.create(
                 WorkspaceSpec(
@@ -208,6 +265,7 @@ class WorkspaceService:
             raise WorkspaceError(f"Failed to start workspace: {exc}") from exc
 
         workspace.status = WorkspaceStatus.RUNNING
+        workspace.last_active_at = _utcnow()
         session.flush()
         return workspace
 
@@ -222,6 +280,7 @@ class WorkspaceService:
         self.backend.provision_home(workspace.volume_path, crypto.dek_passphrase(dek))
         self.backend.start(workspace.container_name)
         workspace.status = WorkspaceStatus.RUNNING
+        workspace.last_active_at = _utcnow()
         session.flush()
 
     async def terminate_workspace(

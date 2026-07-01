@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from typing import Any
 
 from seko_ai.services.litellm_client import LiteLLMError
@@ -35,7 +36,7 @@ class FakeLiteLLMClient:
             raise LiteLLMError("simulated failure")
         self._counter += 1
         self.generated.append({"user_id": user_id, "key_alias": key_alias, "models": models})
-        return {"key": f"sk-fake-{self._counter:04d}", "token": f"tok-{self._counter}"}
+        return {"key": f"sk-fake-{self._counter:04d}", "token": f"tok-{uuid.uuid4().hex}"}
 
     async def delete_keys(
         self, *, keys: list[str] | None = None, key_aliases: list[str] | None = None
@@ -63,7 +64,10 @@ class FakeBackend:
         self.started: list[str] = []
         self.stopped: list[str] = []
         self.removed: list[str] = []
+        self.backed_up: list[tuple[str, list[str]]] = []
+        self.restored: list[tuple[str, str]] = []
         self._states: dict[str, str] = {}
+        self._snap = 0
 
     def _maybe_fail(self, name: str) -> None:
         if self.fail_on == name:
@@ -99,3 +103,15 @@ class FakeBackend:
         if name not in self._states:
             return None
         return ContainerInfo(name=name, status=self._states[name])
+
+    def backup_volume(self, cipher_path: str, tags: list[str]) -> Any:
+        from seko_ai.services.workspaces import BackupResult
+
+        self._maybe_fail("backup_volume")
+        self.backed_up.append((cipher_path, tags))
+        self._snap += 1
+        return BackupResult(snapshot_id=f"snap-{self._snap:04d}", size_bytes=1024 * self._snap)
+
+    def restore_snapshot(self, snapshot_id: str, dest_cipher_path: str) -> None:
+        self._maybe_fail("restore_snapshot")
+        self.restored.append((snapshot_id, dest_cipher_path))

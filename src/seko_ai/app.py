@@ -38,13 +38,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static_dir = _PACKAGE_DIR / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
-    from seko_ai.routers import auth, health, keys, profile, workspaces
+    from seko_ai.routers import auth, backups, health, keys, profile, workspaces
 
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(profile.router)
     app.include_router(keys.router)
     app.include_router(workspaces.router)
+    app.include_router(backups.router)
 
     @app.exception_handler(HTTPException)
     async def _auth_redirect(request: Request, exc: HTTPException):  # type: ignore[no-untyped-def]
