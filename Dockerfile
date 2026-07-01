@@ -1,5 +1,5 @@
 # seko-ai control-plane image. Multi-stage: uv resolves deps, slim runtime.
-FROM ghcr.io/astral-sh/uv:0.11-python3.12-bookworm-slim AS build
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS build
 
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \
