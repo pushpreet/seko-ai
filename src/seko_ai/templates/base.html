@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}seko-ai{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <link rel="stylesheet" href="/static/app.css" />
+  </head>
+  <body class="h-full text-slate-100">
+    <header class="border-b border-slate-800 bg-slate-900/60">
+      <nav class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+        <a href="/" class="text-lg font-semibold tracking-tight">seko&#8209;ai</a>
+        <div class="flex items-center gap-4 text-sm">
+          {% if user %}
+            <a href="/keys" class="hover:text-sky-400">API Keys</a>
+            <a href="/workspaces" class="hover:text-sky-400">Workspaces</a>
+            <a href="/usage" class="hover:text-sky-400">Usage</a>
+            {% if user.is_admin %}<a href="/admin" class="hover:text-amber-400">Admin</a>{% endif %}
+            <span class="text-slate-400">{{ user.display_name or user.username }}</span>
+            <a href="/auth/logout" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">Sign out</a>
+          {% else %}
+            <a href="/auth/login" class="rounded bg-sky-600 px-3 py-1 font-medium hover:bg-sky-500">Sign in</a>
+          {% endif %}
+        </div>
+      </nav>
+    </header>
+    <main class="mx-auto max-w-5xl px-4 py-8">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="mx-auto max-w-5xl px-4 py-6 text-xs text-slate-500">
+      seko-ai v{{ version }} &middot; local LLM control plane
+    </footer>
+  </body>
+</html>

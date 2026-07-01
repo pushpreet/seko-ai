@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; home{% endblock %}
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Your local LLM, self-service.</h1>
+    <p class="mt-2 max-w-2xl text-slate-400">
+      Manage your LLM API key, spin up isolated agentic coding workspaces, or run the same
+      harness on your own hardware &mdash; all backed by the shared vLLM server.
+    </p>
+  </div>
+  {% if user %}
+    <div class="grid gap-4 sm:grid-cols-3">
+      <a href="/keys" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
+        <h2 class="font-medium">API Keys</h2>
+        <p class="mt-1 text-sm text-slate-400">Generate and rotate your LLM key.</p>
+      </a>
+      <a href="/workspaces" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
+        <h2 class="font-medium">Workspaces</h2>
+        <p class="mt-1 text-sm text-slate-400">Launch and manage hosted environments.</p>
+      </a>
+      <a href="/usage" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
+        <h2 class="font-medium">Usage</h2>
+        <p class="mt-1 text-sm text-slate-400">See your token and request usage.</p>
+      </a>
+    </div>
+  {% else %}
+    <a href="/auth/login" class="inline-block rounded-lg bg-sky-600 px-5 py-2 font-medium hover:bg-sky-500">
+      Sign in to get started
+    </a>
+  {% endif %}
+</section>
+{% endblock %}

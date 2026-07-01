@@ -1,0 +1,4 @@
+/* seko-ai local styles (Tailwind CDN handles the rest). */
+:root { color-scheme: dark; }
+.htmx-indicator { opacity: 0; transition: opacity 150ms ease-in; }
+.htmx-request .htmx-indicator { opacity: 1; }
