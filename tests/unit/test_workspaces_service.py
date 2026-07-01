@@ -16,9 +16,13 @@ from tests.fakes import FakeBackend, FakeLiteLLMClient
 
 
 def _user(session: Session, *, with_key: bool = True) -> User:
-    u = User(subject="s", username="alice", ssh_public_key="ssh-ed25519 AAAA" if with_key else None)
+    u = User(subject="s", username="alice")
     session.add(u)
     session.flush()
+    if with_key:
+        from tests.conftest import add_ssh_key
+
+        add_ssh_key(session, u)
     return u
 
 
@@ -38,7 +42,7 @@ async def test_create_workspace_happy_path(db_session: Session, settings: Settin
     # backend received provision + create with injected key + authorized keys
     assert backend.provisioned  # gocryptfs provisioned
     spec = backend.created[0]
-    assert spec.authorized_keys == "ssh-ed25519 AAAA"
+    assert spec.authorized_keys.startswith("ssh-ed25519 AAAA")
     assert spec.llm_api_key.startswith("sk-fake-")
     assert spec.llm_base_url == settings.llm_public_url
     # user got a wrapped DEK

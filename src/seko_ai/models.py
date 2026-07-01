@@ -39,7 +39,7 @@ class User(TimestampMixin, Base):
     is_admin: Mapped[bool] = mapped_column(default=False)
     # Wrapped (envelope-encrypted) per-user data-encryption key, base64. Admin can unwrap.
     wrapped_dek: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Public SSH key the user registers for hosted-workspace access.
+    # Legacy single SSH key (superseded by the ssh_keys table; kept for migration).
     ssh_public_key: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     api_keys: Mapped[list[ApiKey]] = relationship(
@@ -48,6 +48,27 @@ class User(TimestampMixin, Base):
     workspaces: Mapped[list[Workspace]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    ssh_keys: Mapped[list[SSHKey]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class SSHKey(TimestampMixin, Base):
+    """A named SSH public key a user registers for hosted-workspace access (GitHub-style)."""
+
+    __tablename__ = "ssh_keys"
+    __table_args__ = (
+        UniqueConstraint("user_id", "fingerprint", name="uq_ssh_key_user_fingerprint"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    public_key: Mapped[str] = mapped_column(Text)
+    fingerprint: Mapped[str] = mapped_column(String(120), index=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[User] = relationship(back_populates="ssh_keys")
 
 
 class ApiKey(TimestampMixin, Base):

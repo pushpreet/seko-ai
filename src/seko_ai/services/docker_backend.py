@@ -108,10 +108,14 @@ class DockerBackend:
             f"gocryptfs -q -init -passfile /dev/stdin {shlex.quote(cipher)}"
         )
         self._host_exec(["sh", "-c", init_if_needed], stdin=passphrase)
-        # Mount cleartext (idempotent: skip if already a mountpoint).
+        # Mount cleartext (idempotent: skip if already a mountpoint). --force_owner maps all
+        # files to the workspace container's dev uid/gid (1000); --allow_other lets that
+        # (different) user access the seko-mounted FUSE. Requires user_allow_other in
+        # /etc/fuse.conf and an AppArmor allow-rule for this mountpoint (set by the llm_host role).
         mount_if_needed = (
             f"mountpoint -q {shlex.quote(clear)} || "
-            f"gocryptfs -q -passfile /dev/stdin {shlex.quote(cipher)} {shlex.quote(clear)}"
+            f"gocryptfs -q -allow_other -force_owner 1000:1000 -passfile /dev/stdin "
+            f"{shlex.quote(cipher)} {shlex.quote(clear)}"
         )
         self._host_exec(["sh", "-c", mount_if_needed], stdin=passphrase)
 

@@ -16,6 +16,18 @@ from seko_ai.app import create_app
 from seko_ai.config import Settings
 from seko_ai.db import Base
 
+# A real ed25519 public key usable across tests.
+VALID_SSH_KEY = (
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGtft6bOImUHwB+fMzSbM+Rf6NKTWQHWFBbFQzLbtHgK test@seko"
+)
+
+
+def add_ssh_key(session: object, user: object, title: str = "test") -> object:
+    """Attach a valid SSH key to a user (test helper)."""
+    from seko_ai.services import ssh_keys as sk
+
+    return sk.add_key(session, user, title=title, public_key=VALID_SSH_KEY)  # type: ignore[arg-type]
+
 
 @pytest.fixture
 def settings() -> Settings:

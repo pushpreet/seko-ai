@@ -22,6 +22,7 @@ from seko_ai.config import Settings
 from seko_ai.models import Backup, User, Workspace, WorkspaceStatus
 from seko_ai.services import crypto
 from seko_ai.services import keys as keys_service
+from seko_ai.services import ssh_keys as ssh_keys_service
 from seko_ai.services.litellm_client import LiteLLMClient
 
 
@@ -209,8 +210,9 @@ class WorkspaceService:
         harness: str = "pi",
         restore_snapshot_id: str | None = None,
     ) -> Workspace:
-        if not user.ssh_public_key:
+        if not ssh_keys_service.has_keys(session, user.id):
             raise WorkspaceError("Add an SSH public key to your profile before launching.")
+        authorized = ssh_keys_service.authorized_keys(session, user.id)
         active = self._active_workspaces(session, user.id)
         if len(active) >= self.settings.max_workspaces_per_user:
             raise QuotaExceeded(
@@ -251,7 +253,7 @@ class WorkspaceService:
                     name=container_name,
                     image=self.settings.workspace_image,
                     ssh_port=ssh_port,
-                    authorized_keys=user.ssh_public_key,
+                    authorized_keys=authorized,
                     llm_base_url=self.settings.llm_public_url,
                     llm_api_key=plaintext,
                     llm_model=self.settings.llm_model,

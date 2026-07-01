@@ -15,9 +15,12 @@ from tests.fakes import FakeBackend, FakeLiteLLMClient
 
 async def _make_running_workspace(session: Session, settings: Settings, backend: FakeBackend):
     svc = WorkspaceService(settings, backend)
-    user = User(subject="s", username="alice", ssh_public_key="ssh-ed25519 AAAA")
+    user = User(subject="s", username="alice")
     session.add(user)
     session.flush()
+    from tests.conftest import add_ssh_key
+
+    add_ssh_key(session, user)
     ws = await svc.create_workspace(session, FakeLiteLLMClient(), user, name="w")
     return svc, ws
 

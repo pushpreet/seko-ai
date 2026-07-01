@@ -35,8 +35,10 @@ def wired(client: TestClient) -> FakeBackend:
 
 
 def _setup_workspace(client: TestClient) -> None:
+    from tests.conftest import VALID_SSH_KEY
+
     _login(client)
-    client.post("/profile/ssh-key", data={"ssh_public_key": "ssh-ed25519 AAAAtest"})
+    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
     client.post("/workspaces", data={"name": "w"})
 
 

@@ -35,7 +35,9 @@ def wired(client: TestClient) -> FakeBackend:
 
 
 def _add_ssh_key(client: TestClient) -> None:
-    client.post("/profile/ssh-key", data={"ssh_public_key": "ssh-ed25519 AAAAtest"})
+    from tests.conftest import VALID_SSH_KEY
+
+    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
 
 
 def test_workspaces_page_requires_auth(client: TestClient) -> None:
@@ -103,6 +105,6 @@ def test_cannot_touch_another_users_workspace(client: TestClient, wired: FakeBac
 
 def test_ssh_key_validation_rejects_garbage(client: TestClient, wired: FakeBackend) -> None:
     _login(client)
-    resp = client.post("/profile/ssh-key", data={"ssh_public_key": "not-a-key"})
-    assert resp.status_code == 400
-    assert "OpenSSH public key" in resp.text
+    resp = client.post("/profile/ssh-keys", data={"title": "x", "public_key": "not-a-key"})
+    assert resp.status_code == 422
+    assert "valid OpenSSH public key" in resp.text

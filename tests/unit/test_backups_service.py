@@ -12,9 +12,12 @@ from tests.fakes import FakeBackend, FakeLiteLLMClient
 
 
 def _user(session: Session) -> User:
-    u = User(subject="s", username="alice", ssh_public_key="ssh-ed25519 AAAA")
+    u = User(subject="s", username="alice")
     session.add(u)
     session.flush()
+    from tests.conftest import add_ssh_key
+
+    add_ssh_key(session, u)
     return u
 
 

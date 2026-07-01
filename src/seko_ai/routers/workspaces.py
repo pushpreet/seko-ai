@@ -16,6 +16,7 @@ from seko_ai.deps import get_current_db_user, get_litellm_client, get_workspace_
 from seko_ai.logging_config import get_logger
 from seko_ai.models import BackupTrigger, User, Workspace
 from seko_ai.services import backups as backups_service
+from seko_ai.services import ssh_keys as ssh_keys_service
 from seko_ai.services.litellm_client import LiteLLMClient
 from seko_ai.services.workspaces import WorkspaceError, WorkspaceService
 
@@ -66,7 +67,7 @@ def workspaces_page(
         {
             "user": request.session.get("user"),
             "rows": rows,
-            "has_ssh_key": bool(user.ssh_public_key),
+            "has_ssh_key": ssh_keys_service.has_keys(session, user.id),
             "max_workspaces": settings.max_workspaces_per_user,
             "error": None,
         },

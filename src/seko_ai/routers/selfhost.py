@@ -15,6 +15,7 @@ from seko_ai.logging_config import get_logger
 from seko_ai.models import User
 from seko_ai.services import keys as keys_service
 from seko_ai.services import kit as kit_service
+from seko_ai.services import ssh_keys as ssh_keys_service
 from seko_ai.services.litellm_client import LiteLLMClient, LiteLLMError
 
 router = APIRouter(prefix="/selfhost", tags=["selfhost"])
@@ -31,6 +32,7 @@ def _templates() -> Jinja2Templates:
 def selfhost_page(
     request: Request,
     user: User = Depends(get_current_db_user),  # noqa: B008
+    session: Session = Depends(get_session),  # noqa: B008
     settings: Settings = Depends(get_app_settings),  # noqa: B008
 ) -> HTMLResponse:
     """Explain the self-host flow and offer to generate a kit."""
@@ -39,7 +41,7 @@ def selfhost_page(
         "selfhost.html",
         {
             "user": request.session.get("user"),
-            "has_ssh_key": bool(user.ssh_public_key),
+            "has_ssh_key": ssh_keys_service.has_keys(session, user.id),
             "image": settings.workspace_image,
             "kit": None,
             "error": None,
@@ -56,7 +58,8 @@ async def generate_kit(
     litellm: LiteLLMClient = Depends(get_litellm_client),  # noqa: B008
 ) -> HTMLResponse:
     """Mint a key and render a personalized kit (files shown once, key included)."""
-    if not user.ssh_public_key:
+    authorized = ssh_keys_service.authorized_keys(session, user.id)
+    if not authorized:
         return _templates().TemplateResponse(
             request,
             "_selfhost_kit.html",
@@ -74,7 +77,7 @@ async def generate_kit(
             status_code=502,
         )
 
-    kit = kit_service.build_kit(settings, api_key=plaintext, authorized_keys=user.ssh_public_key)
+    kit = kit_service.build_kit(settings, api_key=plaintext, authorized_keys=authorized)
     log.info("kit_generated", user_id=user.id)
     return _templates().TemplateResponse(
         request, "_selfhost_kit.html", {"kit": kit, "error": None}

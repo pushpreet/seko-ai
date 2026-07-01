@@ -90,11 +90,13 @@ def test_generate_kit_requires_ssh_key(client: TestClient, with_llm: None) -> No
 
 
 def test_generate_kit_renders_files(client: TestClient, with_llm: None) -> None:
+    from tests.conftest import VALID_SSH_KEY
+
     _login(client)
-    client.post("/profile/ssh-key", data={"ssh_public_key": "ssh-ed25519 AAAAtest"})
+    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
     resp = client.post("/selfhost/kit")
     assert resp.status_code == 200
     assert "docker-compose.yml" in resp.text
     assert "install.sh" in resp.text
     assert "sk-fake-0001" in resp.text  # personalized key embedded once
-    assert "ssh-ed25519 AAAAtest" in resp.text  # their pubkey
+    assert "AAAAC3NzaC1lZDI1NTE5" in resp.text  # their pubkey blob
