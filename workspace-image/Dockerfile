@@ -14,6 +14,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     LC_ALL=C.UTF-8 \
     HOME=/home/dev
 
+# Fail pipelines (e.g. `curl ... | bash`) on the first non-zero status.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # --- Base harness layer ---------------------------------------------------------------
 # Keep this aligned with the homelab dev image's portable layer: git, Node, python3,
 # tmux, fzf, ripgrep, curl, ca-certificates, and OpenSSH. gnupg is only needed for the
