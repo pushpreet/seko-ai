@@ -46,7 +46,7 @@ def test_parse_ssh_target_rejects_non_ssh(bad: str) -> None:
 def test_build_run_kwargs_hardening_and_env() -> None:
     kwargs = build_run_kwargs(_spec())
     assert kwargs["security_opt"] == ["no-new-privileges:true"]
-    assert kwargs["cap_drop"] == ["ALL"]
+    assert "cap_drop" not in kwargs  # sshd needs default caps (SETUID/CHOWN/DAC_OVERRIDE)
     assert kwargs["pids_limit"] == 512
     assert kwargs["nano_cpus"] == 8_000_000_000
     assert kwargs["mem_limit"] == "16g"

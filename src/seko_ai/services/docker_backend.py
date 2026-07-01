@@ -51,8 +51,11 @@ def build_run_kwargs(spec: WorkspaceSpec) -> dict[str, Any]:
         "nano_cpus": int(spec.cpus * 1_000_000_000),
         "mem_limit": spec.mem,
         "pids_limit": spec.pids_limit,
+        # no-new-privileges blocks privilege escalation; we keep Docker's DEFAULT capability
+        # set (not cap_drop=ALL) because the embedded sshd needs CAP_SETUID/SETGID to drop to
+        # the dev user on login, and CAP_CHOWN/DAC_OVERRIDE to set up the gocryptfs home
+        # (which the kernel enforces via default_permissions).
         "security_opt": ["no-new-privileges:true"],
-        "cap_drop": ["ALL"],
         "labels": spec.labels,
         "restart_policy": {"Name": "unless-stopped"},
     }
