@@ -222,10 +222,6 @@ class WorkspaceService:
         volume_path = f"{self.settings.workspace_data_root.rstrip('/')}/{user.id}/{container_name}"
         ssh_port = self.allocate_port(session)
 
-        api_key, plaintext = await keys_service.create_key_for_user(
-            session, litellm, user, self.settings
-        )
-
         workspace = Workspace(
             user_id=user.id,
             name=name,
@@ -233,10 +229,16 @@ class WorkspaceService:
             harness=harness,
             status=WorkspaceStatus.PROVISIONING,
             ssh_port=ssh_port,
-            litellm_key_alias=api_key.key_alias,
             volume_path=volume_path,
         )
         session.add(workspace)
+        session.flush()
+
+        # Mint a workspace-scoped key (hidden from the user's /keys list; revoked on terminate).
+        api_key, plaintext = await keys_service.create_key_for_user(
+            session, litellm, user, self.settings, workspace_id=workspace.id
+        )
+        workspace.litellm_key_alias = api_key.key_alias
         session.flush()
 
         dek = self.ensure_user_dek(session, user)
@@ -297,6 +299,7 @@ class WorkspaceService:
         if workspace.litellm_key_alias:
             with contextlib.suppress(Exception):  # best-effort revoke; don't block teardown
                 await litellm.delete_keys(key_aliases=[workspace.litellm_key_alias])
+            keys_service.deactivate_by_alias(session, workspace.litellm_key_alias)
         workspace.status = WorkspaceStatus.TERMINATED
         session.flush()
         metrics.WORKSPACES_TERMINATED.inc()

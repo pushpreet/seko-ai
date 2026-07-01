@@ -116,6 +116,24 @@ async def test_terminate_revokes_key_and_removes(
     assert any(d["key_aliases"] == [alias] for d in llm.deleted)
     # terminated workspaces no longer count toward quota / listing
     assert svc.list_workspaces(db_session, user.id) == []
+    # the workspace-scoped key is marked inactive locally (not just deleted at LiteLLM)
+    from seko_ai.models import ApiKey
+
+    key = db_session.query(ApiKey).filter_by(key_alias=alias).one()
+    assert key.active is False
+    assert key.workspace_id == ws.id
+
+
+async def test_workspace_keys_hidden_from_user_key_list(
+    db_session: Session, settings: Settings
+) -> None:
+    from seko_ai.services import keys as ks
+
+    user = _user(db_session)
+    svc = _svc(settings)
+    await svc.create_workspace(db_session, FakeLiteLLMClient(), user, name="w")
+    # The injected workspace key must NOT appear in the user's own /keys list.
+    assert ks.list_user_keys(db_session, user.id) == []
 
 
 async def test_terminate_frees_the_port(db_session: Session, settings: Settings) -> None:

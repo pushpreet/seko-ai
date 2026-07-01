@@ -60,6 +60,11 @@ class ApiKey(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # Set when the key is bound to a hosted workspace (injected into the container). Such keys
+    # are managed by the workspace lifecycle and hidden from the user's own /keys list.
+    workspace_id: Mapped[int | None] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     litellm_key_id: Mapped[str] = mapped_column(String(255), unique=True)
     key_alias: Mapped[str] = mapped_column(String(255))
     masked_key: Mapped[str] = mapped_column(String(64))

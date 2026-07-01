@@ -32,19 +32,37 @@ def litellm_user_id(user: User) -> str:
 
 
 def list_user_keys(session: Session, user_id: int) -> list[ApiKey]:
-    """Return a user's active API keys, newest first."""
+    """Return a user's own (non-workspace) active API keys, newest first."""
     stmt = (
         select(ApiKey)
-        .where(ApiKey.user_id == user_id, ApiKey.active.is_(True))
+        .where(
+            ApiKey.user_id == user_id,
+            ApiKey.active.is_(True),
+            ApiKey.workspace_id.is_(None),
+        )
         .order_by(ApiKey.created_at.desc())
     )
     return list(session.execute(stmt).scalars().all())
 
 
 def get_key(session: Session, user_id: int, key_id: int) -> ApiKey | None:
-    """Return a specific key owned by the user, or None."""
-    stmt = select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == user_id)
+    """Return a specific user-owned (non-workspace) key, or None."""
+    stmt = select(ApiKey).where(
+        ApiKey.id == key_id,
+        ApiKey.user_id == user_id,
+        ApiKey.workspace_id.is_(None),
+    )
     return session.execute(stmt).scalar_one_or_none()
+
+
+def deactivate_by_alias(session: Session, key_alias: str) -> None:
+    """Mark the local ApiKey row for an alias inactive (after revoking it at LiteLLM)."""
+    key = session.execute(
+        select(ApiKey).where(ApiKey.key_alias == key_alias)
+    ).scalar_one_or_none()
+    if key is not None:
+        key.active = False
+        session.flush()
 
 
 async def create_key_for_user(
@@ -52,10 +70,13 @@ async def create_key_for_user(
     client: LiteLLMClient,
     user: User,
     settings: Settings,
+    *,
+    workspace_id: int | None = None,
 ) -> tuple[ApiKey, str]:
     """Mint a LiteLLM virtual key for the user and persist its metadata.
 
     Returns the persisted ``ApiKey`` and the plaintext key value (shown to the user once).
+    Pass ``workspace_id`` for a workspace-scoped key (hidden from the user's /keys list).
     """
     alias = make_alias(user.username)
     result = await client.generate_key(
@@ -70,6 +91,7 @@ async def create_key_for_user(
 
     api_key = ApiKey(
         user_id=user.id,
+        workspace_id=workspace_id,
         litellm_key_id=str(result.get("token") or result.get("key_name") or alias),
         key_alias=alias,
         masked_key=mask_key(plaintext),
