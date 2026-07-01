@@ -52,5 +52,13 @@ def db_session(monkeypatch: pytest.MonkeyPatch) -> Iterator[Session]:
 @pytest.fixture
 def client(settings: Settings, db_session: Session) -> Iterator[TestClient]:
     app = create_app(settings)
+
+    # Authelia serves groups from the userinfo endpoint. Default it to empty so tests that
+    # only mock the ID token (authorize_access_token) don't make a network call; tests that
+    # exercise userinfo override this.
+    async def _empty_userinfo(*args: object, **kwargs: object) -> dict[str, object]:
+        return {}
+
+    app.state.oauth.authelia.userinfo = _empty_userinfo  # type: ignore[attr-defined]
     with TestClient(app) as test_client:
         yield test_client

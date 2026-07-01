@@ -49,13 +49,25 @@ async def callback(
     session: Session = Depends(get_session),  # noqa: B008
 ) -> Any:
     """Handle the OIDC redirect: exchange the code, gate on group, provision the user."""
+    provider = _provider(oauth)
     try:
-        token = await _provider(oauth).authorize_access_token(request)
+        token = await provider.authorize_access_token(request)
     except OAuthError as exc:
         log.warning("oidc_error", error=str(exc))
         return HTMLResponse("Authentication failed.", status_code=400)
 
-    claims = extract_claims(token)
+    # Authelia returns `groups` (and email/name) from the USERINFO endpoint, not the ID
+    # token, so enrich the ID-token claims with a userinfo call before evaluating access.
+    merged: dict[str, Any] = {}
+    if isinstance(token.get("userinfo"), dict):
+        merged.update(token["userinfo"])
+    try:
+        userinfo = await provider.userinfo(token=token)
+        merged.update(dict(userinfo))
+    except Exception as exc:  # userinfo optional; fall back to ID-token claims
+        log.warning("userinfo_failed", error=str(exc))
+
+    claims = extract_claims({"userinfo": merged})
     if not claims.get("subject"):
         return HTMLResponse("Invalid identity token (no subject).", status_code=400)
 

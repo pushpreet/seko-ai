@@ -99,3 +99,37 @@ def test_callback_rejects_token_without_subject(client: TestClient) -> None:
 def test_protected_route_401_for_non_browser(client: TestClient, accept: str) -> None:
     resp = client.get("/profile", headers={"accept": accept}, follow_redirects=False)
     assert resp.status_code == 401
+
+
+def test_groups_from_userinfo_grant_access(client: TestClient) -> None:
+    # Authelia puts groups in the USERINFO endpoint, not the ID token. Simulate an ID token
+    # with no groups but a userinfo response that includes llm_users -> access granted.
+    provider = client.app.state.oauth.authelia  # type: ignore[attr-defined]
+
+    async def id_token_no_groups(request: Any) -> dict[str, Any]:
+        return {"userinfo": {"sub": "u-ui", "preferred_username": "carol"}}
+
+    async def userinfo_with_groups(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"sub": "u-ui", "groups": ["llm_users"], "email": "carol@x.com"}
+
+    provider.authorize_access_token = id_token_no_groups
+    provider.userinfo = userinfo_with_groups
+
+    resp = client.get("/auth/callback?code=abc", follow_redirects=False)
+    assert resp.status_code == 303
+    assert "carol" in client.get("/").text
+
+
+def test_denied_when_userinfo_lacks_group(client: TestClient) -> None:
+    provider = client.app.state.oauth.authelia  # type: ignore[attr-defined]
+
+    async def id_token(request: Any) -> dict[str, Any]:
+        return {"userinfo": {"sub": "u-x", "preferred_username": "dan"}}
+
+    async def userinfo_other(*args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {"sub": "u-x", "groups": ["homelab_users"]}
+
+    provider.authorize_access_token = id_token
+    provider.userinfo = userinfo_other
+    resp = client.get("/auth/callback?code=abc", follow_redirects=False)
+    assert resp.status_code == 403
