@@ -23,7 +23,7 @@ def settings() -> Settings:
         base_url="http://testserver",
         session_secret="test-secret",
         database_url="sqlite://",
-        master_key="dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLXBhZGRpbmch",  # 32 bytes b64
+        master_key="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",  # b64 of 32 bytes
         oidc_client_secret="test-oidc-secret",
         litellm_master_key="sk-test-master",
     )

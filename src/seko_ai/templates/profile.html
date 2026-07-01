@@ -13,5 +13,22 @@
     <dt class="text-slate-400">Role</dt>
     <dd class="col-span-2">{{ "Admin" if user.is_admin else "User" }}</dd>
   </dl>
+
+  <div class="max-w-2xl space-y-3">
+    <h2 class="text-lg font-medium">SSH public key</h2>
+    <p class="text-sm text-slate-400">
+      Required to connect to hosted workspaces. Paste your OpenSSH public key
+      (e.g. the contents of <code>~/.ssh/id_ed25519.pub</code>).
+    </p>
+    {% if error %}
+      <div class="rounded border border-rose-800 bg-rose-950/40 p-2 text-sm text-rose-200">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/profile/ssh-key" class="space-y-2">
+      <textarea name="ssh_public_key" rows="3" spellcheck="false"
+        class="w-full rounded-lg border border-slate-800 bg-slate-950 p-2 font-mono text-xs text-slate-200"
+        placeholder="ssh-ed25519 AAAA...">{{ ssh_public_key or "" }}</textarea>
+      <button class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500">Save key</button>
+    </form>
+  </div>
 </section>
 {% endblock %}

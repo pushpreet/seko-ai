@@ -93,6 +93,9 @@ class Workspace(TimestampMixin, Base):
         default=WorkspaceStatus.PROVISIONING,
     )
     ssh_port: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Alias of the workspace-scoped LiteLLM key injected into the container (revoked on
+    # terminate). The plaintext key is never stored — only injected at create time.
+    litellm_key_alias: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Path to the ciphertext home volume on epyc (gocryptfs); backed up by restic.
     volume_path: Mapped[str] = mapped_column(String(512))
     last_active_at: Mapped[datetime | None] = mapped_column(

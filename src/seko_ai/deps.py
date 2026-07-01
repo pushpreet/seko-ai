@@ -13,6 +13,7 @@ from seko_ai.db import get_session
 from seko_ai.models import User
 from seko_ai.services.litellm_client import LiteLLMClient
 from seko_ai.services.users import get_user_by_subject
+from seko_ai.services.workspaces import ContainerBackend, WorkspaceService
 
 
 def get_current_db_user(
@@ -32,3 +33,21 @@ async def get_litellm_client(request: Request) -> AsyncIterator[LiteLLMClient]:
     settings = get_app_settings(request)
     async with LiteLLMClient.from_settings(settings) as client:
         yield client
+
+
+def get_container_backend(request: Request) -> ContainerBackend:
+    """Return the app's container backend (Docker-over-SSH), cached on app.state."""
+    backend = getattr(request.app.state, "container_backend", None)
+    if backend is None:
+        from seko_ai.services.docker_backend import DockerBackend
+
+        settings = get_app_settings(request)
+        backend = DockerBackend(settings.docker_host)
+        request.app.state.container_backend = backend
+    return backend
+
+
+def get_workspace_service(request: Request) -> WorkspaceService:
+    """Build a WorkspaceService from settings + the container backend."""
+    settings = get_app_settings(request)
+    return WorkspaceService(settings, get_container_backend(request))

@@ -1,0 +1,41 @@
+{# Swappable panel listing a user's workspaces. `rows` = list of (workspace, ssh_command). #}
+<div>
+  {% if error %}
+    <div class="mb-3 rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
+  {% endif %}
+
+  {% if rows %}
+    <ul class="space-y-3">
+      {% for ws, ssh in rows %}
+        <li class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="font-medium">{{ ws.name }}</span>
+              <span class="ml-2 rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{{ ws.status.value }}</span>
+              <span class="ml-2 text-xs text-slate-500">{{ ws.harness }}</span>
+            </div>
+            <div class="flex gap-2">
+              {% if ws.status.value == "running" %}
+                <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
+                  hx-post="/workspaces/{{ ws.id }}/stop" hx-target="#workspaces-panel">Stop</button>
+              {% elif ws.status.value == "stopped" %}
+                <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
+                  hx-post="/workspaces/{{ ws.id }}/start" hx-target="#workspaces-panel">Start</button>
+              {% endif %}
+              <button class="rounded bg-rose-900/70 px-2 py-1 text-xs text-rose-200 hover:bg-rose-800"
+                hx-post="/workspaces/{{ ws.id }}/terminate" hx-target="#workspaces-panel"
+                hx-confirm="Terminate this workspace? Back up first if you need the data.">Terminate</button>
+            </div>
+          </div>
+          {% if ws.status.value == "running" and ws.ssh_port %}
+            <div class="mt-2 text-xs text-slate-400">
+              Connect: <code class="select-all text-sky-300">{{ ssh }}</code>
+            </div>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="rounded-lg border border-slate-800 p-3 text-sm text-slate-400">No workspaces yet.</p>
+  {% endif %}
+</div>

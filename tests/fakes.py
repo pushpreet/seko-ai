@@ -50,3 +50,52 @@ class FakeLiteLLMClient:
 
     async def user_daily_activity(self, user_id: str) -> dict[str, Any]:
         return {"user_id": user_id, "results": []}
+
+
+class FakeBackend:
+    """In-memory ContainerBackend for workspace tests."""
+
+    def __init__(self, *, fail_on: str | None = None) -> None:
+        self.fail_on = fail_on  # method name that should raise
+        self.provisioned: list[tuple[str, str]] = []
+        self.torn_down: list[str] = []
+        self.created: list[Any] = []
+        self.started: list[str] = []
+        self.stopped: list[str] = []
+        self.removed: list[str] = []
+        self._states: dict[str, str] = {}
+
+    def _maybe_fail(self, name: str) -> None:
+        if self.fail_on == name:
+            raise RuntimeError(f"backend failure in {name}")
+
+    def provision_home(self, home_path: str, passphrase: str) -> None:
+        self._maybe_fail("provision_home")
+        self.provisioned.append((home_path, passphrase))
+
+    def teardown_home(self, home_path: str) -> None:
+        self.torn_down.append(home_path)
+
+    def create(self, spec: Any) -> None:
+        self._maybe_fail("create")
+        self.created.append(spec)
+        self._states[spec.name] = "running"
+
+    def start(self, name: str) -> None:
+        self.started.append(name)
+        self._states[name] = "running"
+
+    def stop(self, name: str) -> None:
+        self.stopped.append(name)
+        self._states[name] = "exited"
+
+    def remove(self, name: str) -> None:
+        self.removed.append(name)
+        self._states.pop(name, None)
+
+    def get(self, name: str) -> Any:
+        from seko_ai.services.workspaces import ContainerInfo
+
+        if name not in self._states:
+            return None
+        return ContainerInfo(name=name, status=self._states[name])
