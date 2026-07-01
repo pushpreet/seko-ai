@@ -56,7 +56,9 @@ replace_managed_block() {
 
 ensure_home_layout() {
   log "ensuring ${DEV_HOME} runtime directories exist"
-  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}"
+  # The mount root is owned by seko(1001)=dev(1001); tolerate if the FUSE root rejects chown.
+  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}" 2>/dev/null \
+    || { mkdir -p "${DEV_HOME}"; chmod 0755 "${DEV_HOME}" 2>/dev/null || true; }
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0700 "${SSH_DIR}"
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${SEKO_CONFIG_DIR}"
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}/workspace" "${DEV_HOME}/.pi/agent"

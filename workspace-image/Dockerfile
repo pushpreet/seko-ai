@@ -39,10 +39,12 @@ RUN npm install -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_VERSIO
     && npm cache clean --force
 
 # --- Non-root user (uid/gid 1000 to match mounted home volumes) ------------------------
-# ubuntu:24.04 may ship a default 'ubuntu' user at 1000 — remove it and claim 1000 for dev.
+# The dev user's uid/gid MUST match the host `seko` user (1001) that mounts the per-user
+# gocryptfs home on the LLM host, so the container owns its home and can write. ubuntu:24.04
+# ships a default 'ubuntu' user at 1000 — remove it (we don't need 1000).
 RUN userdel -r ubuntu 2>/dev/null || true; \
-    groupadd -g 1000 dev; \
-    useradd -m -u 1000 -g 1000 -s /bin/bash dev; \
+    groupadd -g 1001 dev; \
+    useradd -m -u 1001 -g 1001 -s /bin/bash dev; \
     install -d -o dev -g dev -m 0755 /home/dev/workspace /home/dev/.config/seko /home/dev/.pi/agent; \
     install -d -m 0755 /run/sshd
 
