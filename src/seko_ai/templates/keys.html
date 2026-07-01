@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; API keys{% endblock %}
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold">API Keys</h1>
+    <p class="mt-1 text-sm text-slate-400">
+      Use a key with any OpenAI-compatible client against the shared LLM backend.
+    </p>
+  </div>
+
+  <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 text-sm">
+    <div class="grid grid-cols-3 gap-y-2">
+      <span class="text-slate-400">Endpoint</span>
+      <code class="col-span-2 select-all text-sky-300">{{ endpoint }}</code>
+      <span class="text-slate-400">Model</span>
+      <code class="col-span-2 select-all text-sky-300">{{ model }}</code>
+    </div>
+  </div>
+
+  <div id="keys-panel">
+    {% include "_keys_panel.html" %}
+  </div>
+</section>
+{% endblock %}
