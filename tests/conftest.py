@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from seko_ai import db as db_module
+from seko_ai import models  # noqa: F401  (register models on Base.metadata)
 from seko_ai.app import create_app
 from seko_ai.config import Settings
 from seko_ai.db import Base
@@ -19,6 +20,7 @@ from seko_ai.db import Base
 @pytest.fixture
 def settings() -> Settings:
     return Settings(
+        base_url="http://testserver",
         session_secret="test-secret",
         database_url="sqlite://",
         master_key="dGVzdC1tYXN0ZXIta2V5LTMyLWJ5dGVzLXBhZGRpbmch",  # 32 bytes b64

@@ -1,0 +1,37 @@
+# seko workspace sshd config — key-only access to the dev user.
+Port 22
+ListenAddress 0.0.0.0
+ListenAddress ::
+
+HostKey /home/dev/.ssh/host_keys/ssh_host_ed25519_key
+HostKey /home/dev/.ssh/host_keys/ssh_host_ecdsa_key
+HostKey /home/dev/.ssh/host_keys/ssh_host_rsa_key
+
+PidFile /run/sshd.pid
+UsePAM yes
+PermitRootLogin no
+AllowUsers dev
+
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+AuthorizedKeysFile .ssh/authorized_keys
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitEmptyPasswords no
+PermitUserEnvironment no
+
+X11Forwarding no
+AllowTcpForwarding yes
+AllowAgentForwarding yes
+PermitTunnel no
+PermitTTY yes
+
+PrintMotd no
+UseDNS no
+ClientAliveInterval 300
+ClientAliveCountMax 2
+MaxAuthTries 3
+MaxSessions 10
+
+AcceptEnv LANG LC_*
+Subsystem sftp internal-sftp
