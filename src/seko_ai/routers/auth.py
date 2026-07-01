@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from starlette.responses import HTMLResponse
 
+from seko_ai import metrics
 from seko_ai.auth import (
     OIDC_PROVIDER,
     extract_claims,
@@ -78,6 +79,7 @@ async def callback(
         is_admin=decision.is_admin,
     )
     request.session["user"] = users_service.session_payload(user)
+    metrics.LOGINS.inc()
     log.info("login", subject=user.subject, is_admin=user.is_admin)
     return RedirectResponse(url="/", status_code=303)
 

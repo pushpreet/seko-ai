@@ -1,0 +1,28 @@
+{# Rendered kit: three files shown once (the .env contains the one-time key). #}
+{% if error %}
+  <div class="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
+{% elif kit %}
+  <div class="space-y-4">
+    <div class="rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+      Save these three files into a new folder, then run <code>bash install.sh</code>.
+      The key in <code>.env</code> is shown once.
+    </div>
+
+    <div>
+      <div class="mb-1 flex items-center justify-between">
+        <h3 class="font-medium">.env</h3>
+      </div>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.env }}</code></pre>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">docker-compose.yml</h3>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.compose }}</code></pre>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">install.sh</h3>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.install }}</code></pre>
+    </div>
+  </div>
+{% endif %}

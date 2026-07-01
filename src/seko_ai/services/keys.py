@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from seko_ai import metrics
 from seko_ai.config import Settings
 from seko_ai.models import ApiKey, User
 from seko_ai.services.litellm_client import LiteLLMClient
@@ -76,6 +77,7 @@ async def create_key_for_user(
     )
     session.add(api_key)
     session.flush()
+    metrics.KEYS_ISSUED.inc()
     return api_key, plaintext
 
 

@@ -17,6 +17,7 @@ from typing import Protocol, runtime_checkable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from seko_ai import metrics
 from seko_ai.config import Settings
 from seko_ai.models import Backup, User, Workspace, WorkspaceStatus
 from seko_ai.services import crypto
@@ -267,6 +268,7 @@ class WorkspaceService:
         workspace.status = WorkspaceStatus.RUNNING
         workspace.last_active_at = _utcnow()
         session.flush()
+        metrics.WORKSPACES_CREATED.inc()
         return workspace
 
     def stop_workspace(self, session: Session, workspace: Workspace) -> None:
@@ -297,6 +299,7 @@ class WorkspaceService:
                 await litellm.delete_keys(key_aliases=[workspace.litellm_key_alias])
         workspace.status = WorkspaceStatus.TERMINATED
         session.flush()
+        metrics.WORKSPACES_TERMINATED.inc()
 
     def ssh_command(self, workspace: Workspace) -> str:
         """Return the SSH command a user runs to reach the workspace (Tailscale)."""

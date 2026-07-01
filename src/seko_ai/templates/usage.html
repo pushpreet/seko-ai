@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; usage{% endblock %}
+{% macro summary_card(s) %}
+  <div class="grid grid-cols-3 gap-4">
+    <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <div class="text-xs text-slate-400">Requests</div>
+      <div class="mt-1 text-2xl font-semibold">{{ s.total_requests }}</div>
+    </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <div class="text-xs text-slate-400">Tokens</div>
+      <div class="mt-1 text-2xl font-semibold">{{ "{:,}".format(s.total_tokens) }}</div>
+    </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <div class="text-xs text-slate-400">Spend</div>
+      <div class="mt-1 text-2xl font-semibold">${{ "%.4f"|format(s.total_spend) }}</div>
+    </div>
+  </div>
+{% endmacro %}
+{% block content %}
+<section class="space-y-6">
+  <h1 class="text-2xl font-semibold">Usage</h1>
+  {% if not mine.available %}
+    <p class="rounded-lg border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-200">
+      Usage data is temporarily unavailable.
+    </p>
+  {% else %}
+    {{ summary_card(mine) }}
+  {% endif %}
+
+  {% if everyone is not none %}
+    <div class="space-y-2">
+      <h2 class="text-lg font-medium">All users <span class="text-xs text-amber-400">(admin)</span></h2>
+      <table class="w-full text-sm">
+        <thead class="text-left text-slate-400">
+          <tr><th class="py-1">User</th><th>Requests</th><th>Tokens</th><th>Spend</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800">
+          {% for s in everyone %}
+            <tr>
+              <td class="py-1">{{ s.username }}</td>
+              <td>{{ s.total_requests }}</td>
+              <td>{{ "{:,}".format(s.total_tokens) }}</td>
+              <td>${{ "%.4f"|format(s.total_spend) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

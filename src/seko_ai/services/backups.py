@@ -7,6 +7,7 @@ import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from seko_ai import metrics
 from seko_ai.logging_config import get_logger
 from seko_ai.models import Backup, BackupTrigger, Workspace
 from seko_ai.services.workspaces import ContainerBackend
@@ -69,6 +70,7 @@ def backup_workspace(
         )
         session.add(backup)
         session.flush()
+        metrics.BACKUPS.labels(trigger=trigger.value, result="failure").inc()
         return backup
 
     backup = Backup(
@@ -81,5 +83,6 @@ def backup_workspace(
     )
     session.add(backup)
     session.flush()
+    metrics.BACKUPS.labels(trigger=trigger.value, result="success").inc()
     log.info("backup_created", workspace_id=workspace.id, snapshot=result.snapshot_id)
     return backup

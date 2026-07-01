@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; run on your hardware{% endblock %}
+{% block content %}
+<section class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-semibold">Run on your own hardware</h1>
+    <p class="mt-1 max-w-2xl text-sm text-slate-400">
+      Prefer to run the harness locally? Generate a personalized kit that starts the same
+      workspace image (<code>{{ image }}</code>) on your machine, pointed at the shared LLM
+      endpoint with a key issued to you.
+    </p>
+  </div>
+
+  {% if not has_ssh_key %}
+    <div class="rounded-lg border border-amber-700 bg-amber-950/40 p-3 text-sm text-amber-200">
+      Add an SSH public key on your <a href="/profile" class="underline">profile</a> first.
+    </div>
+  {% endif %}
+
+  <button
+    class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500 disabled:opacity-40"
+    hx-post="/selfhost/kit" hx-target="#kit" {% if not has_ssh_key %}disabled{% endif %}>
+    Generate my kit
+  </button>
+
+  <div id="kit">
+    {% include "_selfhost_kit.html" %}
+  </div>
+</section>
+{% endblock %}
