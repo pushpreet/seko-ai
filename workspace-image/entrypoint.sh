@@ -10,7 +10,6 @@ DEV_USER="dev"
 DEV_GROUP="dev"
 DEV_HOME="/home/dev"
 SSH_DIR="${DEV_HOME}/.ssh"
-HOST_KEY_DIR="${SSH_DIR}/host_keys"
 SEKO_CONFIG_DIR="${DEV_HOME}/.config/seko"
 LLM_ENV_FILE="${SEKO_CONFIG_DIR}/llm.env"
 PROFILE_D_FILE="/etc/profile.d/seko-llm.sh"
@@ -91,30 +90,17 @@ write_authorized_keys() {
   rm -f "${raw_keys}" "${normalized_keys}"
 }
 
-generate_host_key() {
-  local type="$1"
-  local path="$2"
-  shift 2
-
-  if [ -s "${path}" ]; then
-    log "using existing ${type} SSH host key at ${path}"
-    return 0
+ensure_host_keys() {
+  # sshd requires root-owned host keys, but a gocryptfs mount (served by the unprivileged
+  # seko user) can't hold root-owned files. So keep host keys in /etc/ssh (container fs,
+  # root-owned). They persist across stop/start; a terminate+recreate regenerates them
+  # (a restored workspace is a new container, so a changed fingerprint is expected).
+  if [ ! -s /etc/ssh/ssh_host_ed25519_key ]; then
+    log "generating SSH host keys in /etc/ssh"
+    ssh-keygen -A >/dev/null
+  else
+    log "using existing /etc/ssh host keys"
   fi
-
-  log "generating persistent ${type} SSH host key at ${path}"
-  ssh-keygen -q -t "${type}" "$@" -N '' -f "${path}"
-}
-
-ensure_persistent_host_keys() {
-  # Host keys live on the mounted home volume so SSH fingerprints survive container
-  # recreation. They are root-owned because sshd reads them before dropping privileges.
-  install -d -o root -g root -m 0700 "${HOST_KEY_DIR}"
-  generate_host_key ed25519 "${HOST_KEY_DIR}/ssh_host_ed25519_key"
-  generate_host_key ecdsa "${HOST_KEY_DIR}/ssh_host_ecdsa_key" -b 521
-  generate_host_key rsa "${HOST_KEY_DIR}/ssh_host_rsa_key" -b 4096
-  chown root:root "${HOST_KEY_DIR}"/ssh_host_*_key "${HOST_KEY_DIR}"/ssh_host_*_key.pub
-  chmod 0600 "${HOST_KEY_DIR}"/ssh_host_*_key
-  chmod 0644 "${HOST_KEY_DIR}"/ssh_host_*_key.pub
 }
 
 write_llm_env() {
@@ -194,7 +180,7 @@ EOF_NOTE
 main() {
   ensure_home_layout
   write_authorized_keys
-  ensure_persistent_host_keys
+  ensure_host_keys
   write_llm_env
   ensure_shell_sources
   write_pi_note
