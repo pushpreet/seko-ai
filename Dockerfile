@@ -24,6 +24,7 @@ RUN apt-get update \
 RUN useradd --create-home --uid 1000 seko
 WORKDIR /app
 COPY --from=build --chown=seko:seko /app /app
+RUN chmod +x /app/docker-entrypoint.sh
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONUNBUFFERED=1
 
@@ -31,4 +32,5 @@ USER seko
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/healthz').status==200 else 1)"
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "seko_ai.app:app", "--host", "0.0.0.0", "--port", "8080"]
