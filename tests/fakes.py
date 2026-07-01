@@ -49,7 +49,7 @@ class FakeLiteLLMClient:
     async def key_info(self, key: str) -> dict[str, Any]:
         return {"key": key, "spend": 0.0}
 
-    async def user_daily_activity(self, user_id: str) -> dict[str, Any]:
+    async def user_daily_activity(self, user_id: str, **kwargs: Any) -> dict[str, Any]:
         return {"user_id": user_id, "results": []}
 
 

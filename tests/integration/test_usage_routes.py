@@ -13,7 +13,7 @@ from tests.fakes import FakeLiteLLMClient
 
 
 class UsageFake(FakeLiteLLMClient):
-    async def user_daily_activity(self, user_id: str) -> dict[str, Any]:
+    async def user_daily_activity(self, user_id: str, **kwargs: Any) -> dict[str, Any]:
         return {"metadata": {"total_spend": 2.5, "total_tokens": 4200, "total_api_requests": 12}}
 
 

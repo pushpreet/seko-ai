@@ -80,6 +80,8 @@ async def test_key_info_and_usage() -> None:
     )
     async with make_client() as client:
         info = await client.key_info("sk-abc")
-        usage = await client.user_daily_activity("seko-user-1")
+        usage = await client.user_daily_activity(
+            "seko-user-1", start_date="2026-06-01", end_date="2026-07-01"
+        )
     assert info["spend"] == 1.5
     assert usage == {"results": []}

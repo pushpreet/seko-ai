@@ -127,6 +127,11 @@ class LiteLLMClient:
         """Return metadata/spend for a single key."""
         return await self._get("/key/info", params={"key": key})
 
-    async def user_daily_activity(self, user_id: str) -> dict[str, Any]:
-        """Return per-user usage/spend aggregates (used by the usage dashboard)."""
-        return await self._get("/user/daily/activity", params={"user_id": user_id})
+    async def user_daily_activity(
+        self, user_id: str, *, start_date: str, end_date: str
+    ) -> dict[str, Any]:
+        """Return per-user usage/spend aggregates for a date range (YYYY-MM-DD)."""
+        return await self._get(
+            "/user/daily/activity",
+            params={"user_id": user_id, "start_date": start_date, "end_date": end_date},
+        )

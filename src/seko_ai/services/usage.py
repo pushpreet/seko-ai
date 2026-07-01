@@ -60,8 +60,14 @@ def _metric(result: dict[str, Any], key: str) -> Any:
 
 async def user_summary(litellm: LiteLLMClient, user: User) -> UsageSummary:
     """Fetch and summarize a single user's usage; degrade gracefully on error."""
+    from datetime import UTC, datetime, timedelta
+
+    end = datetime.now(UTC).date()
+    start = end - timedelta(days=30)
     try:
-        raw = await litellm.user_daily_activity(litellm_user_id(user))
+        raw = await litellm.user_daily_activity(
+            litellm_user_id(user), start_date=start.isoformat(), end_date=end.isoformat()
+        )
     except LiteLLMError:
         return UsageSummary(user.username, 0.0, 0, 0, available=False)
     return summarize(user.username, raw)
