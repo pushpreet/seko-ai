@@ -26,7 +26,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(debug=settings.debug)
 
-    app = FastAPI(title="seko-ai", version=__version__, debug=settings.debug)
+    # Disable FastAPI's built-in Swagger/ReDoc so /docs can serve the user guide instead
+    # (this control plane exposes no public programmatic API that needs interactive docs).
+    app = FastAPI(
+        title="seko-ai",
+        version=__version__,
+        debug=settings.debug,
+        docs_url=None,
+        redoc_url=None,
+    )
     app.state.settings = settings
     app.state.oauth = create_oauth(settings)
     app.add_middleware(
@@ -41,6 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     from seko_ai.routers import (
         auth,
         backups,
+        docs,
         health,
         keys,
         profile,
@@ -57,6 +66,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(backups.router)
     app.include_router(selfhost.router)
     app.include_router(usage.router)
+    app.include_router(docs.router)
 
     @app.exception_handler(HTTPException)
     async def _auth_redirect(request: Request, exc: HTTPException):  # type: ignore[no-untyped-def]

@@ -2,6 +2,12 @@
 
 Deferred features and improvements, most recent first.
 
+> **Shipped:** In-app **Docs** page (`/docs`) covering the three ways to use the LLM (direct
+> API, local workspaces, remote workspaces). Remote-workspace Tailscale onboarding uses
+> **tailnet invite + ACL grant** scoping guests to the workspace SSH ports (`22000-22099`) —
+> admin procedure in `../psx-homelab/docs/seko-ai-runbook.md` §5a. The item below (public,
+> no-Tailscale access) remains the deferred, install-nothing alternative.
+
 ## Public (no-Tailscale) workspace access
 
 **Status:** deferred · **Requested:** 2026-07-01

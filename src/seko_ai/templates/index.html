@@ -10,7 +10,7 @@
     </p>
   </div>
   {% if user %}
-    <div class="grid gap-4 sm:grid-cols-3">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <a href="/keys" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
         <h2 class="font-medium">API Keys</h2>
         <p class="mt-1 text-sm text-slate-400">Generate and rotate your LLM key.</p>
@@ -22,6 +22,10 @@
       <a href="/usage" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
         <h2 class="font-medium">Usage</h2>
         <p class="mt-1 text-sm text-slate-400">See your token and request usage.</p>
+      </a>
+      <a href="/docs" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
+        <h2 class="font-medium">Docs</h2>
+        <p class="mt-1 text-sm text-slate-400">Three ways to use the LLM: API, local, remote.</p>
       </a>
     </div>
   {% else %}
