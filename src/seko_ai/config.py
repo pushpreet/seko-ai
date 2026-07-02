@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     workspace_ssh_host: str = "epyc.pushprh.com"
 
     # --- Quotas & lifecycle (admin-configurable defaults) ---
-    max_workspaces_per_user: int = 2
+    max_workspaces_per_user: int = 5
     workspace_cpus: float = 8.0
     workspace_mem: str = "16g"
     workspace_pids_limit: int = 512

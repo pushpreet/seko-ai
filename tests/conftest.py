@@ -38,6 +38,7 @@ def settings() -> Settings:
         master_key="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=",  # b64 of 32 bytes
         oidc_client_secret="test-oidc-secret",
         litellm_master_key="sk-test-master",
+        max_workspaces_per_user=2,  # small limit so quota paths are exercised in tests
     )
 
 
