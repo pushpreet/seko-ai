@@ -88,7 +88,12 @@ RUN userdel -r ubuntu 2>/dev/null || true; \
     useradd -m -u 1001 -g 1001 -s /bin/bash dev; \
     install -d -o dev -g dev -m 0755 /home/dev/workspace /home/dev/.config/seko \
         /home/dev/.pi/agent /home/dev/.omp/agent; \
-    install -d -m 0755 /run/sshd
+    install -d -m 0755 /run/sshd; \
+    # Earlier build steps run pi/omp/npm as root with HOME=/home/dev (e.g. `omp --version`),
+    # leaving ~/.omp, ~/.pi, ~/.npm and ~/.config owned root:root. The dev user must own its
+    # whole home so `omp` can create ~/.omp/natives (else its bundled native addon can't load
+    # and it won't start) and so `pi update self`/`omp update` and npm cache writes work.
+    chown -R dev:dev /home/dev
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY entrypoint.sh /usr/local/bin/seko-entrypoint
