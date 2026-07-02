@@ -8,6 +8,9 @@ FROM ubuntu:24.04
 # --- Versions (pin deliberately; bump when upgrading) ---------------------------------
 ARG NODE_MAJOR=22
 ARG PI_VERSION=0.80.3
+# fd (fast file finder) — pi uses it and otherwise downloads its own copy on first run.
+# Pin to the version pi expects so it's found on PATH (like ripgrep) and never downloaded.
+ARG FD_VERSION=10.4.2
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -37,6 +40,12 @@ RUN curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR}.x" | bash - \
 # --build-arg PI_VERSION=... when intentionally upgrading.
 RUN npm install -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_VERSION}" \
     && npm cache clean --force
+
+# fd on PATH (matches the version pi would otherwise self-download to ~/.pi/agent/bin/fd).
+RUN curl -fsSL "https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+      | tar -xz -C /tmp \
+    && install -m 0755 "/tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-gnu/fd" /usr/local/bin/fd \
+    && rm -rf "/tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-gnu"
 
 # --- Non-root user (uid/gid 1000 to match mounted home volumes) ------------------------
 # The dev user's uid/gid MUST match the host `seko` user (1001) that mounts the per-user
