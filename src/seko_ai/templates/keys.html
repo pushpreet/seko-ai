@@ -12,9 +12,15 @@
   <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 text-sm">
     <div class="grid grid-cols-3 gap-y-2">
       <span class="text-slate-400">Endpoint</span>
-      <code class="col-span-2 select-all text-sky-300">{{ endpoint }}</code>
+      <div class="col-span-2 flex flex-wrap items-center gap-2">
+        <code class="select-all text-sky-300">{{ endpoint }}</code>
+        <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy API endpoint" data-copy="{{ endpoint }}" onclick="copyText(this)">Copy</button>
+      </div>
       <span class="text-slate-400">Model</span>
-      <code class="col-span-2 select-all text-sky-300">{{ model }}</code>
+      <div class="col-span-2 flex flex-wrap items-center gap-2">
+        <code class="select-all text-sky-300">{{ model }}</code>
+        <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy model" data-copy="{{ model }}" onclick="copyText(this)">Copy</button>
+      </div>
     </div>
   </div>
 

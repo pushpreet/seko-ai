@@ -4,6 +4,7 @@
     <div class="mb-4 rounded-lg border border-emerald-700 bg-emerald-950/40 p-4">
       <p class="text-sm font-medium text-emerald-300">Your new key (copy it now — shown once):</p>
       <code class="mt-2 block select-all break-all rounded bg-slate-950 p-2 text-sm text-emerald-200">{{ new_key }}</code>
+      <button class="mt-2 rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy new API key" data-copy="{{ new_key }}" onclick="copyText(this)">Copy</button>
     </div>
   {% endif %}
 

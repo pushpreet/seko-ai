@@ -185,3 +185,8 @@ class DockerBackend:
             f"--target {shlex.quote(dest_cipher_path)} --include / "
         )
         self._host_exec(["sh", "-c", cmd])
+
+    def forget_snapshot(self, snapshot_id: str) -> None:  # pragma: no cover
+        env = " ".join(f"{k}={shlex.quote(v)}" for k, v in self._restic_env().items())
+        cmd = f"{env} restic forget --prune {shlex.quote(snapshot_id)}"
+        self._host_exec(["sh", "-c", cmd])

@@ -88,6 +88,30 @@ def test_restore_missing_backup_404(client: TestClient, wired: FakeBackend) -> N
     assert resp.status_code == 404
 
 
+def test_delete_backup_forgets_snapshot_and_removes_row(
+    client: TestClient, wired: FakeBackend
+) -> None:
+    _setup_workspace(client)
+    client.post("/workspaces/1/backup")
+    snapshot_id = "snap-0001"
+
+    resp = client.post("/backups/1/delete")
+
+    assert resp.status_code == 200
+    assert "Backup deleted" in resp.text
+    assert wired.forgotten == [snapshot_id]
+    page = client.get("/backups")
+    assert page.status_code == 200
+    assert "manual" not in page.text
+    assert "No backups yet" in page.text
+
+
+def test_delete_missing_backup_404(client: TestClient, wired: FakeBackend) -> None:
+    _login(client)
+    resp = client.post("/backups/999/delete")
+    assert resp.status_code == 404
+
+
 def test_restore_over_quota_shows_error(client: TestClient, wired: FakeBackend) -> None:
     _setup_workspace(client)  # 1 workspace (limit is 2 in test settings)
     client.post("/workspaces/1/backup")

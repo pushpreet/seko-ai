@@ -92,6 +92,9 @@ class ContainerBackend(Protocol):
     def restore_snapshot(self, snapshot_id: str, dest_cipher_path: str) -> None:
         """Restore a restic snapshot's ciphertext into ``dest_cipher_path``."""
 
+    def forget_snapshot(self, snapshot_id: str) -> None:
+        """Remove a restic snapshot from the repository (restic forget --prune)."""
+
 
 @dataclass(frozen=True)
 class BackupResult:

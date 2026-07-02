@@ -51,7 +51,16 @@ uv sync
 uv run ruff check . && uv run mypy src && uv run pytest        # all must pass
 uv run pytest --cov          # keep coverage high (currently ~93%; target ≥90%)
 ./tasks.sh check             # lint + typecheck + cov
+
+# Run a single test / file / dir (./tasks.sh test forwards args to pytest):
+uv run pytest tests/unit/test_keys_service.py                  # one file
+uv run pytest tests/unit/test_keys_service.py::test_mint_key   # one test
+uv run pytest tests/unit -k "rotate"                           # by keyword
+./tasks.sh test tests/unit/test_crypto.py                      # via task runner
 ```
+Tests split into `tests/unit/` (services vs. `tests/fakes.py`) and `tests/integration/`
+(routers via FastAPI `TestClient`). `pytest-asyncio` is in `auto` mode (no `@mark.asyncio`
+needed); shared fixtures + a real ed25519 key live in `tests/conftest.py`.
 Conventions: type-annotated, ruff-clean, mypy-strict. Business logic lives in `services/`
 and is unit-tested against fakes (`tests/fakes.py`: `FakeLiteLLMClient`, `FakeBackend`);
 Docker/SSH/gocryptfs/restic I/O is `# pragma: no cover` and validated on epyc by an operator.

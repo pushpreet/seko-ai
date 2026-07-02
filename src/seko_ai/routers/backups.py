@@ -69,3 +69,26 @@ async def restore_backup(
         {"backups": user_backups, "error": error, "restored": error is None},
         status_code=400 if error else 200,
     )
+
+
+@router.post("/{backup_id}/delete", response_class=HTMLResponse)
+def delete_backup(
+    request: Request,
+    backup_id: int,
+    user: User = Depends(get_current_db_user),  # noqa: B008
+    session: Session = Depends(get_session),  # noqa: B008
+    svc: WorkspaceService = Depends(get_workspace_service),  # noqa: B008
+) -> HTMLResponse:
+    """Delete a backup row and forget its restic snapshot when present."""
+    backup = backups_service.get_user_backup(session, user.id, backup_id)
+    if backup is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Backup not found")
+
+    backups_service.delete_backup(session, svc.backend, backup)
+    log.info("delete_ok", user_id=user.id, backup_id=backup_id)
+    user_backups = backups_service.list_user_backups(session, user.id)
+    return _templates().TemplateResponse(
+        request,
+        "_backups_list.html",
+        {"backups": user_backups, "error": None, "restored": False, "deleted": True},
+    )

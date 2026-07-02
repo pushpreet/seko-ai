@@ -8,6 +8,30 @@
     <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"[45]..","swap":true}]}' />
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <script>
+      window.copyText = async function (btn) {
+        const text = btn.dataset.copy || "";
+        if (!text || !navigator.clipboard) return;
+
+        const originalText = btn.textContent;
+        const originalTitle = btn.getAttribute("title");
+        try {
+          await navigator.clipboard.writeText(text);
+          btn.textContent = "Copied!";
+          btn.setAttribute("title", "Copied!");
+          setTimeout(() => {
+            btn.textContent = originalText;
+            if (originalTitle) {
+              btn.setAttribute("title", originalTitle);
+            } else {
+              btn.removeAttribute("title");
+            }
+          }, 1200);
+        } catch {
+          btn.setAttribute("title", "Copy failed");
+        }
+      };
+    </script>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="h-full text-slate-100">
@@ -21,7 +45,6 @@
             <a href="/backups" class="hover:text-sky-400">Backups</a>
             <a href="/selfhost" class="hover:text-sky-400">Self-host</a>
             <a href="/usage" class="hover:text-sky-400">Usage</a>
-            {% if user.is_admin %}<a href="/admin" class="hover:text-amber-400">Admin</a>{% endif %}
             <a href="/profile" class="text-slate-400 hover:text-sky-400">{{ user.display_name or user.username }}</a>
             <a href="/auth/logout" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">Sign out</a>
           {% else %}

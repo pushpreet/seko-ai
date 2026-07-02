@@ -15,9 +15,10 @@ class UsageSummary:
     """Aggregated usage for a user (best-effort from LiteLLM's response)."""
 
     username: str
-    total_spend: float
     total_tokens: int
     total_requests: int
+    prompt_tokens: int
+    completion_tokens: int
     available: bool = True
 
 
@@ -33,24 +34,36 @@ def summarize(username: str, raw: dict[str, Any], *, available: bool = True) -> 
     meta = raw.get("metadata") or {}
     results = raw.get("results") or []
 
-    spend = meta.get("total_spend")
     tokens = meta.get("total_tokens")
     requests = meta.get("total_api_requests", meta.get("total_requests"))
+    prompt_tokens = _first_present(meta, "total_prompt_tokens", "prompt_tokens")
+    completion_tokens = _first_present(meta, "total_completion_tokens", "completion_tokens")
 
-    if spend is None:
-        spend = sum(_num(_metric(r, "spend")) for r in results)
     if tokens is None:
         tokens = sum(_num(_metric(r, "total_tokens")) for r in results)
     if requests is None:
         requests = sum(_num(_metric(r, "api_requests")) for r in results)
+    if prompt_tokens is None:
+        prompt_tokens = sum(_num(_metric(r, "prompt_tokens")) for r in results)
+    if completion_tokens is None:
+        completion_tokens = sum(_num(_metric(r, "completion_tokens")) for r in results)
 
     return UsageSummary(
         username=username,
-        total_spend=round(_num(spend), 4),
         total_tokens=int(_num(tokens)),
         total_requests=int(_num(requests)),
+        prompt_tokens=int(_num(prompt_tokens)),
+        completion_tokens=int(_num(completion_tokens)),
         available=available,
     )
+
+
+def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        value = mapping.get(key)
+        if value is not None:
+            return value
+    return None
 
 
 def _metric(result: dict[str, Any], key: str) -> Any:
@@ -69,5 +82,12 @@ async def user_summary(litellm: LiteLLMClient, user: User) -> UsageSummary:
             litellm_user_id(user), start_date=start.isoformat(), end_date=end.isoformat()
         )
     except LiteLLMError:
-        return UsageSummary(user.username, 0.0, 0, 0, available=False)
+        return UsageSummary(
+            username=user.username,
+            total_tokens=0,
+            total_requests=0,
+            prompt_tokens=0,
+            completion_tokens=0,
+            available=False,
+        )
     return summarize(user.username, raw)

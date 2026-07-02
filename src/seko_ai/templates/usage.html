@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}seko-ai &middot; usage{% endblock %}
 {% macro summary_card(s) %}
-  <div class="grid grid-cols-3 gap-4">
+  <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
     <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
       <div class="text-xs text-slate-400">Requests</div>
       <div class="mt-1 text-2xl font-semibold">{{ s.total_requests }}</div>
@@ -11,8 +11,12 @@
       <div class="mt-1 text-2xl font-semibold">{{ "{:,}".format(s.total_tokens) }}</div>
     </div>
     <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
-      <div class="text-xs text-slate-400">Spend</div>
-      <div class="mt-1 text-2xl font-semibold">${{ "%.4f"|format(s.total_spend) }}</div>
+      <div class="text-xs text-slate-400">Prompt</div>
+      <div class="mt-1 text-2xl font-semibold">{{ "{:,}".format(s.prompt_tokens) }}</div>
+    </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
+      <div class="text-xs text-slate-400">Generate</div>
+      <div class="mt-1 text-2xl font-semibold">{{ "{:,}".format(s.completion_tokens) }}</div>
     </div>
   </div>
 {% endmacro %}
@@ -32,7 +36,13 @@
       <h2 class="text-lg font-medium">All users <span class="text-xs text-amber-400">(admin)</span></h2>
       <table class="w-full text-sm">
         <thead class="text-left text-slate-400">
-          <tr><th class="py-1">User</th><th>Requests</th><th>Tokens</th><th>Spend</th></tr>
+          <tr>
+            <th class="py-1">User</th>
+            <th>Requests</th>
+            <th>Tokens</th>
+            <th>Prompt</th>
+            <th>Generate</th>
+          </tr>
         </thead>
         <tbody class="divide-y divide-slate-800">
           {% for s in everyone %}
@@ -40,7 +50,8 @@
               <td class="py-1">{{ s.username }}</td>
               <td>{{ s.total_requests }}</td>
               <td>{{ "{:,}".format(s.total_tokens) }}</td>
-              <td>${{ "%.4f"|format(s.total_spend) }}</td>
+              <td>{{ "{:,}".format(s.prompt_tokens) }}</td>
+              <td>{{ "{:,}".format(s.completion_tokens) }}</td>
             </tr>
           {% endfor %}
         </tbody>

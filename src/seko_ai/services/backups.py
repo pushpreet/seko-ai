@@ -86,3 +86,19 @@ def backup_workspace(
     metrics.BACKUPS.labels(trigger=trigger.value, result="success").inc()
     log.info("backup_created", workspace_id=workspace.id, snapshot=result.snapshot_id)
     return backup
+
+
+def delete_backup(session: Session, backend: ContainerBackend, backup: Backup) -> None:
+    """Forget a restic snapshot if present, then remove the backup row."""
+    if backup.snapshot_id:
+        try:
+            backend.forget_snapshot(backup.snapshot_id)
+        except Exception as exc:
+            log.warning(
+                "backup_forget_failed",
+                backup_id=backup.id,
+                snapshot=backup.snapshot_id,
+                error=str(exc),
+            )
+    session.delete(backup)
+    session.flush()

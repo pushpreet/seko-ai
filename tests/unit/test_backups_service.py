@@ -5,7 +5,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from seko_ai.config import Settings
-from seko_ai.models import BackupTrigger, User, WorkspaceStatus
+from seko_ai.models import Backup, BackupTrigger, User, WorkspaceStatus
 from seko_ai.services import backups as bs
 from seko_ai.services.workspaces import WorkspaceService
 from tests.fakes import FakeBackend, FakeLiteLLMClient
@@ -87,3 +87,47 @@ async def test_get_user_backup_ownership(db_session: Session, settings: Settings
     backup = bs.backup_workspace(db_session, backend, ws, BackupTrigger.MANUAL)
     assert bs.get_user_backup(db_session, user.id, backup.id) is backup
     assert bs.get_user_backup(db_session, user.id + 99, backup.id) is None
+
+
+async def test_delete_backup_forgets_snapshot_and_removes_row(
+    db_session: Session, settings: Settings
+) -> None:
+    backend = FakeBackend()
+    _, user, ws = await _make_workspace(db_session, settings, backend)
+    backup = bs.backup_workspace(db_session, backend, ws, BackupTrigger.MANUAL)
+
+    bs.delete_backup(db_session, backend, backup)
+
+    assert backend.forgotten == ["snap-0001"]
+    assert bs.list_user_backups(db_session, user.id) == []
+    assert db_session.get(Backup, backup.id) is None
+
+
+async def test_delete_failed_backup_skips_forget_and_removes_row(
+    db_session: Session, settings: Settings
+) -> None:
+    backend = FakeBackend(fail_on="backup_volume")
+    _, user, ws = await _make_workspace(db_session, settings, backend)
+    backup = bs.backup_workspace(db_session, backend, ws, BackupTrigger.NIGHTLY)
+    backup_id = backup.id
+
+    bs.delete_backup(db_session, backend, backup)
+
+    assert backend.forgotten == []
+    assert bs.get_user_backup(db_session, user.id, backup_id) is None
+    assert db_session.get(Backup, backup_id) is None
+
+
+async def test_delete_backup_tolerates_forget_failure(
+    db_session: Session, settings: Settings
+) -> None:
+    backend = FakeBackend()
+    _, user, ws = await _make_workspace(db_session, settings, backend)
+    backup = bs.backup_workspace(db_session, backend, ws, BackupTrigger.MANUAL)
+    backup_id = backup.id
+
+    failing_backend = FakeBackend(fail_on="forget_snapshot")
+    bs.delete_backup(db_session, failing_backend, backup)
+
+    assert bs.list_user_backups(db_session, user.id) == []
+    assert db_session.get(Backup, backup_id) is None

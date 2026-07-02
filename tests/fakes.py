@@ -66,6 +66,7 @@ class FakeBackend:
         self.removed: list[str] = []
         self.backed_up: list[tuple[str, list[str]]] = []
         self.restored: list[tuple[str, str]] = []
+        self.forgotten: list[str] = []
         self._states: dict[str, str] = {}
         self._snap = 0
 
@@ -115,3 +116,7 @@ class FakeBackend:
     def restore_snapshot(self, snapshot_id: str, dest_cipher_path: str) -> None:
         self._maybe_fail("restore_snapshot")
         self.restored.append((snapshot_id, dest_cipher_path))
+
+    def forget_snapshot(self, snapshot_id: str) -> None:
+        self._maybe_fail("forget_snapshot")
+        self.forgotten.append(snapshot_id)

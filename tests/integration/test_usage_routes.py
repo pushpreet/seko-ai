@@ -14,7 +14,14 @@ from tests.fakes import FakeLiteLLMClient
 
 class UsageFake(FakeLiteLLMClient):
     async def user_daily_activity(self, user_id: str, **kwargs: Any) -> dict[str, Any]:
-        return {"metadata": {"total_spend": 2.5, "total_tokens": 4200, "total_api_requests": 12}}
+        return {
+            "metadata": {
+                "total_tokens": 4200,
+                "total_api_requests": 12,
+                "total_prompt_tokens": 3000,
+                "total_completion_tokens": 1200,
+            }
+        }
 
 
 def _login(client: TestClient, groups: list[str]) -> None:
@@ -45,7 +52,9 @@ def test_user_sees_own_usage(client: TestClient, usage_llm: None) -> None:
     resp = client.get("/usage")
     assert resp.status_code == 200
     assert "4,200" in resp.text  # tokens formatted
-    assert "2.5000" in resp.text  # spend
+    assert "3,000" in resp.text  # uploaded tokens formatted
+    assert "1,200" in resp.text  # generated tokens formatted
+    assert "Spend" not in resp.text
     assert "(admin)" not in resp.text
 
 

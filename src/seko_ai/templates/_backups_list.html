@@ -6,6 +6,10 @@
     <div class="mb-3 rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
       Restored into a new workspace. See <a href="/workspaces" class="underline">Workspaces</a>.
     </div>
+  {% elif deleted %}
+    <div class="mb-3 rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+      Backup deleted.
+    </div>
   {% endif %}
 
   {% if backups %}
@@ -17,9 +21,14 @@
             <span class="ml-2 text-xs text-slate-500">{{ b.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
             <span class="ml-2 rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">{{ b.trigger.value }}</span>
           </div>
-          <button class="rounded bg-sky-600 px-2 py-1 text-xs font-medium hover:bg-sky-500"
-            hx-post="/backups/{{ b.id }}/restore" hx-target="#backups-list"
-            hx-confirm="Restore this snapshot into a new workspace?">Restore</button>
+          <div class="flex gap-2">
+            <button class="rounded bg-sky-600 px-2 py-1 text-xs font-medium hover:bg-sky-500"
+              hx-post="/backups/{{ b.id }}/restore" hx-target="#backups-list"
+              hx-confirm="Restore this snapshot into a new workspace?">Restore</button>
+            <button class="rounded bg-rose-900/70 px-2 py-1 text-xs text-rose-200 hover:bg-rose-800"
+              hx-post="/backups/{{ b.id }}/delete" hx-target="#backups-list"
+              hx-confirm="Permanently delete this backup snapshot? This cannot be undone.">Delete</button>
+          </div>
         </li>
       {% endfor %}
     </ul>
