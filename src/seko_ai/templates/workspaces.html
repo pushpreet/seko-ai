@@ -5,8 +5,8 @@
   <div>
     <h1 class="text-2xl font-semibold">Workspaces</h1>
     <p class="mt-1 text-sm text-slate-400">
-      Isolated hosted environments running the pi coding harness against the shared LLM.
-      Connect over SSH (Tailscale). Limit: {{ max_workspaces }} concurrent.
+      Isolated hosted environments running your chosen coding harness (pi or oh-my-pi)
+      against the shared LLM. Connect over SSH (Tailscale). Limit: {{ max_workspaces }} concurrent.
     </p>
   </div>
 
@@ -22,6 +22,15 @@
         <span class="block text-slate-400">Name</span>
         <input name="name" value="workspace"
           class="mt-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm" />
+      </label>
+      <label class="text-sm">
+        <span class="block text-slate-400">Harness</span>
+        <select name="harness"
+          class="mt-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm">
+          {% for value, label in harness_choices %}
+            <option value="{{ value }}" {% if value == default_harness %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
       </label>
       <button {% if not has_ssh_key %}disabled{% endif %}
         class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500 disabled:opacity-40">

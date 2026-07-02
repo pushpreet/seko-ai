@@ -60,7 +60,7 @@ ensure_home_layout() {
     || { mkdir -p "${DEV_HOME}"; chmod 0755 "${DEV_HOME}" 2>/dev/null || true; }
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0700 "${SSH_DIR}"
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${SEKO_CONFIG_DIR}"
-  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}/workspace" "${DEV_HOME}/.pi/agent"
+  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}/workspace" "${DEV_HOME}/.pi/agent" "${DEV_HOME}/.omp/agent"
   install -d -m 0755 /run/sshd
 }
 
@@ -185,6 +185,30 @@ install_pi_config() {
   fi
 }
 
+install_omp_config() {
+  # Install omp's (oh-my-pi) config into the mounted ~/.omp/agent (baked config lives
+  # outside the mount). Mirrors install_pi_config so both harnesses behave identically:
+  # the local-llm provider extension is MANAGED (always refreshed so fixes propagate);
+  # config.yml is SEEDED once (users may tweak it); modelRoles.default tracks LLM_MODEL.
+  local src="/usr/local/share/seko-omp"
+  local agent="${DEV_HOME}/.omp/agent"
+  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${agent}/extensions"
+
+  if [ -f "${src}/local-llm.ts" ]; then
+    log "installing omp local-llm provider extension"
+    install -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0644 \
+      "${src}/local-llm.ts" "${agent}/extensions/local-llm.ts"
+  fi
+
+  if [ ! -e "${agent}/config.yml" ] && [ -f "${src}/config.yml" ]; then
+    log "seeding omp config.yml (default=local/${LLM_MODEL:-qwen3.6-27b})"
+    sed "s#default: \"local/[^\"]*\"#default: \"local/${LLM_MODEL:-qwen3.6-27b}\"#" \
+      "${src}/config.yml" > "${agent}/config.yml"
+    chown "${DEV_USER}:${DEV_GROUP}" "${agent}/config.yml"
+    chmod 0644 "${agent}/config.yml"
+  fi
+}
+
 main() {
   ensure_home_layout
   write_authorized_keys
@@ -192,6 +216,7 @@ main() {
   write_llm_env
   ensure_shell_sources
   install_pi_config
+  install_omp_config
 
   if [ "$#" -eq 0 ]; then
     set -- /usr/sbin/sshd -D -e

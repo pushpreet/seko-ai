@@ -6,9 +6,20 @@ over Tailscale) or self-hosted on a user's machine pointed at `https://llm.pushp
 ## Contents
 
 - Ubuntu 24.04
-- non-root `dev` user (`uid=1000`, `gid=1000`, `HOME=/home/dev`)
+- non-root `dev` user (`uid=1001`, `gid=1001`, `HOME=/home/dev`)
 - git, Node 22, python3, tmux, fzf, ripgrep, curl, ca-certificates, OpenSSH server
-- pi coding agent: npm `@earendil-works/pi-coding-agent` pinned by `PI_VERSION` (default `0.80.3`); pi is preconfigured to use the LiteLLM endpoint via a bundled provider extension
+- two interchangeable coding harnesses, both preconfigured for the LiteLLM endpoint via a
+  bundled provider extension so users can compare them:
+  - **pi**: npm `@earendil-works/pi-coding-agent`, pinned by `PI_VERSION` (default `0.80.3`);
+    launch with `pi`. Installed into a `dev`-owned npm prefix (`/opt/pi`) and symlinked onto
+    `PATH`, so `pi update self` self-updates in-container from an interactive shell (updates
+    reset to the pinned `PI_VERSION` baseline when the workspace is recreated).
+  - **oh-my-pi (omp)**: prebuilt binary pinned by `OMP_VERSION` (default `v16.3.2`), a
+    self-contained `omp-linux-x64` release (bundles its own Bun runtime — no Node/Bun
+    dependency at runtime); launch with `omp`. Installed under `/opt/omp/bin` (owned by the
+    `dev` user) and symlinked onto `PATH`, so `omp update` self-updates in-container from an
+    interactive shell. Self-updates live on the container filesystem and reset to the pinned
+    `OMP_VERSION` baseline when the workspace is recreated.
 
 Build args:
 
@@ -16,6 +27,7 @@ Build args:
 docker build \
   --build-arg NODE_MAJOR=22 \
   --build-arg PI_VERSION=0.80.2 \
+  --build-arg OMP_VERSION=v16.3.2 \
   -t seko-workspace:test .
 ```
 
@@ -46,12 +58,12 @@ ssh dev@<host> -p <port>
 ```
 
 Authentication is key-only; password auth and root login are disabled. `/home/dev` is the
-durable mounted volume for dotfiles, pi state, SSH auth, and `~/workspace`.
+durable mounted volume for dotfiles, harness state, SSH auth, and `~/workspace`.
 
-Host keys are generated on first run under `/home/dev/.ssh/host_keys/` and referenced by
-`sshd_config`. Because that directory is on the mounted home volume, SSH fingerprints remain
-stable across container recreation. If the home volume is deleted, new host keys are generated
-and clients will see a changed fingerprint.
+Host keys live in `/etc/ssh` (root-owned, on the container filesystem — a gocryptfs mount
+served by the unprivileged host user can't hold root-owned files). They persist across
+stop/start; a terminate+recreate regenerates them, so a restored workspace is a new container
+with a changed fingerprint (expected).
 
 ## Hosted vs self-hosted
 
@@ -65,12 +77,20 @@ Docker network. For local host access, add runtime host-gateway wiring outside t
 docker run --add-host host.docker.internal:host-gateway ...
 ```
 
-## pi configuration
+## Harness configuration
 
-This image does not bake a `local-harness` repository or custom pi extension. It creates
-`~/.pi/agent` and relies on the exported `LLM_*` and `OPENAI_*` variables, which pi and other
-OpenAI-compatible tooling can consume. User-specific pi config and sessions persist under
-`/home/dev`.
+The entrypoint installs each harness's config into the mounted home at runtime (baked config
+lives outside the mount so the volume can't shadow it):
+
+- **pi** → `~/.pi/agent`: a managed `extensions/local-llm.ts` provider extension (always
+  refreshed) plus a seeded `settings.json` (`defaultProvider: local`, `defaultModel` tracks
+  `LLM_MODEL`).
+- **omp** → `~/.omp/agent`: a managed `extensions/local-llm.ts` provider extension plus a
+  seeded `config.yml` (`modelRoles.default: local/<LLM_MODEL>`, setup wizard skipped).
+
+Both extensions register a `local` provider pointed at `LLM_BASE_URL` with `LLM_API_KEY`, so
+`pi` and `omp` reach the same endpoint identically. User-specific harness config and sessions
+persist under `/home/dev`. Run `pi` or `omp` inside the workspace to drive either one.
 
 ## Publish
 

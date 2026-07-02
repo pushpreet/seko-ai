@@ -49,10 +49,19 @@ docker run --rm \
   seko-workspace:test \
   bash -lc 'set -euo pipefail
     test "$(cat /home/dev/.ssh/authorized_keys)" = "${SEKO_AUTHORIZED_KEYS}"
-    test -s /home/dev/.ssh/host_keys/ssh_host_ed25519_key
+    test -s /etc/ssh/ssh_host_ed25519_key
     test -s /home/dev/.config/seko/llm.env
-    grep -q "OPENAI_BASE_URL" /etc/profile.d/seko-llm.sh
+    grep -q "OPENAI_BASE_URL" /home/dev/.config/seko/llm.env
+    grep -q "llm.env" /etc/profile.d/seko-llm.sh
     grep -q "OPENAI_BASE_URL" /etc/environment
+    # both harnesses present on PATH
+    command -v pi >/dev/null
+    command -v omp >/dev/null
+    # pi + omp harness config installed into the mounted home
+    test -f /home/dev/.pi/agent/extensions/local-llm.ts
+    test -f /home/dev/.omp/agent/extensions/local-llm.ts
+    test -f /home/dev/.omp/agent/config.yml
+    grep -q "local/test-model" /home/dev/.omp/agent/config.yml
     /usr/sbin/sshd -t
   '
 

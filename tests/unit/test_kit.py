@@ -40,6 +40,23 @@ def test_build_install_is_bash_and_checks_docker() -> None:
     assert "command -v docker" in install
     assert "docker compose up -d" in install
     assert "ssh dev@localhost -p 2222" in install
+    # default harness is pi
+    assert "-t pi" in install
+    assert "Drive the pi harness" in install
+
+
+def test_build_install_uses_selected_harness() -> None:
+    install = kit_service.build_install(harness="oh-my-pi")
+    assert "Drive the oh-my-pi harness" in install
+    assert "-t omp" in install
+    assert "-t pi" not in install
+
+
+def test_build_kit_threads_harness(default_settings: Settings) -> None:
+    kit = kit_service.build_kit(
+        default_settings, api_key="sk-xyz", authorized_keys="k", harness="oh-my-pi"
+    )
+    assert "-t omp" in kit.install
 
 
 def test_build_kit_bundles_all_three(default_settings: Settings) -> None:
@@ -100,3 +117,15 @@ def test_generate_kit_renders_files(client: TestClient, with_llm: None) -> None:
     assert "install.sh" in resp.text
     assert "sk-fake-0001" in resp.text  # personalized key embedded once
     assert "AAAAC3NzaC1lZDI1NTE5" in resp.text  # their pubkey blob
+    assert "-t pi" in resp.text  # default harness launch hint
+
+
+def test_generate_kit_honors_harness(client: TestClient, with_llm: None) -> None:
+    from tests.conftest import VALID_SSH_KEY
+
+    _login(client)
+    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
+    resp = client.post("/selfhost/kit", data={"harness": "oh-my-pi"})
+    assert resp.status_code == 200
+    assert "-t omp" in resp.text
+    assert "Drive the oh-my-pi harness" in resp.text

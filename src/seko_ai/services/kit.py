@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from seko_ai.config import Settings
+from seko_ai.harness import DEFAULT_HARNESS, harness_binary
 
 DEFAULT_LOCAL_SSH_PORT = 2222
 
@@ -65,8 +66,9 @@ def build_compose(*, image: str, ssh_port: int = DEFAULT_LOCAL_SSH_PORT) -> str:
     )
 
 
-def build_install(*, ssh_port: int = DEFAULT_LOCAL_SSH_PORT) -> str:
+def build_install(*, ssh_port: int = DEFAULT_LOCAL_SSH_PORT, harness: str = DEFAULT_HARNESS) -> str:
     """Render install.sh (expects compose + .env alongside it)."""
+    binary = harness_binary(harness)
     return (
         "#!/usr/bin/env bash\n"
         "# seko-ai self-host installer. Run in a directory containing docker-compose.yml\n"
@@ -92,12 +94,18 @@ def build_install(*, ssh_port: int = DEFAULT_LOCAL_SSH_PORT) -> str:
         "\n"
         'echo\n'
         f'echo "Workspace is up. Connect with: ssh dev@localhost -p {ssh_port}"\n'
-        'echo "Drive the pi harness inside: ssh dev@localhost -p '
-        f'{ssh_port} -t pi"\n'
+        f'echo "Drive the {harness} harness inside: ssh dev@localhost -p '
+        f'{ssh_port} -t {binary}"\n'
     )
 
 
-def build_kit(settings: Settings, *, api_key: str, authorized_keys: str) -> SelfHostKit:
+def build_kit(
+    settings: Settings,
+    *,
+    api_key: str,
+    authorized_keys: str,
+    harness: str = DEFAULT_HARNESS,
+) -> SelfHostKit:
     """Render the full kit for a user."""
     return SelfHostKit(
         env=build_env(
@@ -107,5 +115,5 @@ def build_kit(settings: Settings, *, api_key: str, authorized_keys: str) -> Self
             authorized_keys=authorized_keys,
         ),
         compose=build_compose(image=settings.workspace_image),
-        install=build_install(),
+        install=build_install(harness=harness),
     )

@@ -17,11 +17,22 @@
     </div>
   {% endif %}
 
-  <button
-    class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500 disabled:opacity-40"
-    hx-post="/selfhost/kit" hx-target="#kit" {% if not has_ssh_key %}disabled{% endif %}>
-    Generate my kit
-  </button>
+  <div class="flex flex-wrap items-end gap-3">
+    <label class="text-sm">
+      <span class="block text-slate-400">Harness</span>
+      <select name="harness" id="harness"
+        class="mt-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-sm">
+        {% for value, label in harness_choices %}
+          <option value="{{ value }}" {% if value == default_harness %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button
+      class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500 disabled:opacity-40"
+      hx-post="/selfhost/kit" hx-include="#harness" hx-target="#kit" {% if not has_ssh_key %}disabled{% endif %}>
+      Generate my kit
+    </button>
+  </div>
 
   <div id="kit">
     {% include "_selfhost_kit.html" %}

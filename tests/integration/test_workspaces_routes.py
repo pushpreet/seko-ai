@@ -77,6 +77,35 @@ def test_create_without_key_shows_error(client: TestClient, wired: FakeBackend) 
     assert "SSH public key" in resp.text
 
 
+def test_page_renders_harness_picker(client: TestClient, wired: FakeBackend) -> None:
+    _login(client)
+    _add_ssh_key(client)
+    resp = client.get("/workspaces")
+    assert resp.status_code == 200
+    assert 'name="harness"' in resp.text
+    assert "oh-my-pi" in resp.text
+
+
+def test_create_with_omp_harness(client: TestClient, wired: FakeBackend) -> None:
+    _login(client)
+    _add_ssh_key(client)
+    resp = client.post("/workspaces", data={"name": "ompws", "harness": "oh-my-pi"})
+    assert resp.status_code == 200
+    assert "ompws" in resp.text
+    assert "oh-my-pi" in resp.text  # harness label in the panel
+    assert "-t omp" in resp.text  # launch hint targets the omp binary
+
+
+def test_create_with_unknown_harness_falls_back_to_pi(
+    client: TestClient, wired: FakeBackend
+) -> None:
+    _login(client)
+    _add_ssh_key(client)
+    resp = client.post("/workspaces", data={"name": "w", "harness": "bogus"})
+    assert resp.status_code == 200
+    assert "-t pi" in resp.text
+
+
 def test_stop_and_start(client: TestClient, wired: FakeBackend) -> None:
     _login(client)
     _add_ssh_key(client)

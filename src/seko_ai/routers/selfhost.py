@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -11,6 +13,7 @@ from seko_ai.auth import get_app_settings
 from seko_ai.config import Settings
 from seko_ai.db import get_session
 from seko_ai.deps import get_current_db_user, get_litellm_client
+from seko_ai.harness import DEFAULT_HARNESS, HARNESS_CHOICES, normalize_harness
 from seko_ai.logging_config import get_logger
 from seko_ai.models import User
 from seko_ai.services import keys as keys_service
@@ -43,6 +46,8 @@ def selfhost_page(
             "user": request.session.get("user"),
             "has_ssh_key": ssh_keys_service.has_keys(session, user.id),
             "image": settings.workspace_image,
+            "harness_choices": HARNESS_CHOICES,
+            "default_harness": DEFAULT_HARNESS,
             "kit": None,
             "error": None,
         },
@@ -52,6 +57,7 @@ def selfhost_page(
 @router.post("/kit", response_class=HTMLResponse)
 async def generate_kit(
     request: Request,
+    harness: Annotated[str, Form()] = DEFAULT_HARNESS,
     user: User = Depends(get_current_db_user),  # noqa: B008
     session: Session = Depends(get_session),  # noqa: B008
     settings: Settings = Depends(get_app_settings),  # noqa: B008
@@ -77,8 +83,13 @@ async def generate_kit(
             status_code=502,
         )
 
-    kit = kit_service.build_kit(settings, api_key=plaintext, authorized_keys=authorized)
-    log.info("kit_generated", user_id=user.id)
+    kit = kit_service.build_kit(
+        settings,
+        api_key=plaintext,
+        authorized_keys=authorized,
+        harness=normalize_harness(harness),
+    )
+    log.info("kit_generated", user_id=user.id, harness=normalize_harness(harness))
     return _templates().TemplateResponse(
         request, "_selfhost_kit.html", {"kit": kit, "error": None}
     )

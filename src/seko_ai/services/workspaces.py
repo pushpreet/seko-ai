@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from seko_ai import metrics
 from seko_ai.config import Settings
+from seko_ai.harness import harness_binary
 from seko_ai.models import Backup, User, Workspace, WorkspaceStatus
 from seko_ai.services import crypto
 from seko_ai.services import keys as keys_service
@@ -312,3 +313,8 @@ class WorkspaceService:
     def ssh_command(self, workspace: Workspace) -> str:
         """Return the SSH command a user runs to reach the workspace (Tailscale)."""
         return f"ssh dev@{self.settings.workspace_ssh_host} -p {workspace.ssh_port}"
+
+    def harness_command(self, workspace: Workspace) -> str:
+        """Return the SSH command that drops straight into the workspace's chosen harness."""
+        binary = harness_binary(workspace.harness)
+        return f"{self.ssh_command(workspace)} -t {binary}"

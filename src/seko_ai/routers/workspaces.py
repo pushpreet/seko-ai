@@ -13,6 +13,7 @@ from seko_ai.auth import get_app_settings
 from seko_ai.config import Settings
 from seko_ai.db import get_session
 from seko_ai.deps import get_current_db_user, get_litellm_client, get_workspace_service
+from seko_ai.harness import DEFAULT_HARNESS, HARNESS_CHOICES, normalize_harness
 from seko_ai.logging_config import get_logger
 from seko_ai.models import BackupTrigger, User, Workspace
 from seko_ai.services import backups as backups_service
@@ -40,7 +41,7 @@ def _panel(
     notice: str | None = None,
 ) -> HTMLResponse:
     workspaces = svc.list_workspaces(session, user_id)
-    rows = [(ws, svc.ssh_command(ws)) for ws in workspaces]
+    rows = [(ws, svc.ssh_command(ws), svc.harness_command(ws)) for ws in workspaces]
     status_code = 400 if error else 200
     return _templates().TemplateResponse(
         request,
@@ -60,7 +61,7 @@ def workspaces_page(
 ) -> HTMLResponse:
     """Render the user's workspaces and the create form."""
     workspaces = svc.list_workspaces(session, user.id)
-    rows = [(ws, svc.ssh_command(ws)) for ws in workspaces]
+    rows = [(ws, svc.ssh_command(ws), svc.harness_command(ws)) for ws in workspaces]
     return _templates().TemplateResponse(
         request,
         "workspaces.html",
@@ -69,6 +70,8 @@ def workspaces_page(
             "rows": rows,
             "has_ssh_key": ssh_keys_service.has_keys(session, user.id),
             "max_workspaces": settings.max_workspaces_per_user,
+            "harness_choices": HARNESS_CHOICES,
+            "default_harness": DEFAULT_HARNESS,
             "error": None,
         },
     )
@@ -78,6 +81,7 @@ def workspaces_page(
 async def create_workspace(
     request: Request,
     name: Annotated[str, Form()] = "workspace",
+    harness: Annotated[str, Form()] = DEFAULT_HARNESS,
     user: User = Depends(get_current_db_user),  # noqa: B008
     session: Session = Depends(get_session),  # noqa: B008
     svc: WorkspaceService = Depends(get_workspace_service),  # noqa: B008
@@ -85,11 +89,17 @@ async def create_workspace(
 ) -> HTMLResponse:
     """Provision a new hosted workspace."""
     try:
-        await svc.create_workspace(session, litellm, user, name=name.strip() or "workspace")
+        await svc.create_workspace(
+            session,
+            litellm,
+            user,
+            name=name.strip() or "workspace",
+            harness=normalize_harness(harness),
+        )
     except WorkspaceError as exc:
         log.warning("workspace_create_failed", user_id=user.id, error=str(exc))
         return _panel(request, svc, session, user.id, error=str(exc))
-    log.info("workspace_created", user_id=user.id)
+    log.info("workspace_created", user_id=user.id, harness=normalize_harness(harness))
     return _panel(request, svc, session, user.id)
 
 

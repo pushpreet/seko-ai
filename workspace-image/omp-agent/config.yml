@@ -1,0 +1,17 @@
+# omp (oh-my-pi) settings — seeded once into ~/.omp/agent/config.yml by the seko
+# entrypoint (users may then tweak it; the local-llm provider extension is refreshed
+# separately on every start). The entrypoint rewrites modelRoles.default to track the
+# injected LLM_MODEL when seeding.
+modelRoles:
+  # Launch straight into the homelab provider registered by extensions/local-llm.ts.
+  default: "local/qwen3.6-27b"
+defaultThinkingLevel: "medium"
+# setupVersion 99 skips every first-run wizard scene (there is no TTY over `ssh ... -t omp`
+# for a fresh session anyway, but this makes it explicit and future-proof).
+setupVersion: 99
+# Silence the report_tool_issue consent prompt for headless/self-hosted use.
+dev:
+  autoqa:
+    consent: "denied"
+compaction:
+  enabled: true

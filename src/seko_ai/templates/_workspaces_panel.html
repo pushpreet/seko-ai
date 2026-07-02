@@ -1,4 +1,4 @@
-{# Swappable panel listing a user's workspaces. `rows` = list of (workspace, ssh_command). #}
+{# Swappable panel listing a user's workspaces. `rows` = list of (workspace, ssh_command, harness_command). #}
 <div>
   {% if error %}
     <div class="mb-3 rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
@@ -8,7 +8,7 @@
 
   {% if rows %}
     <ul class="space-y-3">
-      {% for ws, ssh in rows %}
+      {% for ws, ssh, harness_cmd in rows %}
         <li class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
           <div class="flex items-center justify-between">
             <div>
@@ -52,9 +52,15 @@
             </div>
           </dialog>
           {% if ws.status.value == "running" and ws.ssh_port %}
-            <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-400">
-              Connect: <code class="select-all text-sky-300">{{ ssh }}</code>
-              <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy SSH command" data-copy="{{ ssh }}" onclick="copyText(this)">Copy</button>
+            <div class="mt-2 space-y-1 text-xs text-slate-400">
+              <div class="flex flex-wrap items-center gap-2">
+                Shell: <code class="select-all text-sky-300">{{ ssh }}</code>
+                <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy SSH command" data-copy="{{ ssh }}" onclick="copyText(this)">Copy</button>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                Launch {{ ws.harness }}: <code class="select-all text-emerald-300">{{ harness_cmd }}</code>
+                <button class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700" type="button" title="Copy harness command" data-copy="{{ harness_cmd }}" onclick="copyText(this)">Copy</button>
+              </div>
             </div>
           {% endif %}
         </li>

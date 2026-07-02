@@ -178,3 +178,33 @@ def test_ssh_command_format(db_session: Session, settings: Settings) -> None:
     ws = Workspace(user_id=1, name="w", container_name="c", ssh_port=22005, volume_path="/v")
     cmd = _svc(settings).ssh_command(ws)
     assert cmd == f"ssh dev@{settings.workspace_ssh_host} -p 22005"
+
+
+def test_harness_command_appends_binary(db_session: Session, settings: Settings) -> None:
+    svc = _svc(settings)
+    host = settings.workspace_ssh_host
+    pi_ws = Workspace(
+        user_id=1, name="w", container_name="c", ssh_port=22005, volume_path="/v", harness="pi"
+    )
+    omp_ws = Workspace(
+        user_id=1,
+        name="w2",
+        container_name="c2",
+        ssh_port=22006,
+        volume_path="/v2",
+        harness="oh-my-pi",
+    )
+    assert svc.harness_command(pi_ws) == f"ssh dev@{host} -p 22005 -t pi"
+    assert svc.harness_command(omp_ws) == f"ssh dev@{host} -p 22006 -t omp"
+
+
+async def test_create_workspace_records_harness(
+    db_session: Session, settings: Settings
+) -> None:
+    user = _user(db_session)
+    svc = _svc(settings)
+    ws = await svc.create_workspace(
+        db_session, FakeLiteLLMClient(), user, name="dev", harness="oh-my-pi"
+    )
+    assert ws.harness == "oh-my-pi"
+    assert svc.harness_command(ws).endswith("-t omp")
