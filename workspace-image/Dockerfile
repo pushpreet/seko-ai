@@ -7,7 +7,7 @@ FROM ubuntu:24.04
 
 # --- Versions (pin deliberately; bump when upgrading) ---------------------------------
 ARG NODE_MAJOR=22
-ARG PI_VERSION=0.80.2
+ARG PI_VERSION=0.80.3
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=C.UTF-8 \
@@ -50,6 +50,9 @@ RUN userdel -r ubuntu 2>/dev/null || true; \
 
 COPY sshd_config /etc/ssh/sshd_config
 COPY entrypoint.sh /usr/local/bin/seko-entrypoint
+# pi config (provider extension + default settings), installed into ~/.pi/agent at runtime
+# by the entrypoint (the mounted home would otherwise shadow anything baked into /home/dev).
+COPY pi-agent/ /usr/local/share/seko-pi/
 RUN chmod 0755 /usr/local/bin/seko-entrypoint \
     && chmod 0644 /etc/ssh/sshd_config
 

@@ -8,7 +8,7 @@ over Tailscale) or self-hosted on a user's machine pointed at `https://llm.pushp
 - Ubuntu 24.04
 - non-root `dev` user (`uid=1000`, `gid=1000`, `HOME=/home/dev`)
 - git, Node 22, python3, tmux, fzf, ripgrep, curl, ca-certificates, OpenSSH server
-- pi coding agent: npm `@earendil-works/pi-coding-agent` pinned by `PI_VERSION` (default `0.80.2`)
+- pi coding agent: npm `@earendil-works/pi-coding-agent` pinned by `PI_VERSION` (default `0.80.3`); pi is preconfigured to use the LiteLLM endpoint via a bundled provider extension
 
 Build args:
 

@@ -1,0 +1,11 @@
+{
+  "defaultProvider": "local",
+  "defaultModel": "qwen3.6-27b",
+  "defaultThinkingLevel": "medium",
+  "theme": "dark",
+  "defaultProjectTrust": "ask",
+  "enableInstallTelemetry": false,
+  "compaction": {
+    "enabled": true
+  }
+}

@@ -162,18 +162,26 @@ EOF_SHELL_SOURCE
   done
 }
 
-write_pi_note() {
-  local note="${DEV_HOME}/.pi/agent/SEKO.md"
-  if [ ! -e "${note}" ]; then
-    cat > "${note}" <<'EOF_NOTE'
-# seko pi config
+install_pi_config() {
+  # Install pi's config into the mounted ~/.pi/agent (baked config lives outside the mount).
+  # The local-llm provider extension is MANAGED — always refreshed so fixes propagate.
+  # settings.json is SEEDED once (users may tweak it); defaultModel tracks LLM_MODEL.
+  local src="/usr/local/share/seko-pi"
+  local agent="${DEV_HOME}/.pi/agent"
+  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${agent}/extensions"
 
-seko-ai intentionally keeps pi configuration minimal in this image. The entrypoint exports
-LLM_BASE_URL / LLM_API_KEY / LLM_MODEL and mirrored OPENAI_* variables for pi and other
-OpenAI-compatible tools. Runtime state and any user custom pi config persist under ~/.pi/.
-EOF_NOTE
-    chown "${DEV_USER}:${DEV_GROUP}" "${note}"
-    chmod 0644 "${note}"
+  if [ -f "${src}/local-llm.ts" ]; then
+    log "installing pi local-llm provider extension"
+    install -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0644 \
+      "${src}/local-llm.ts" "${agent}/extensions/local-llm.ts"
+  fi
+
+  if [ ! -e "${agent}/settings.json" ] && [ -f "${src}/settings.json" ]; then
+    log "seeding pi settings.json (defaultModel=${LLM_MODEL:-qwen3.6-27b})"
+    sed "s/\"defaultModel\": \"[^\"]*\"/\"defaultModel\": \"${LLM_MODEL:-qwen3.6-27b}\"/" \
+      "${src}/settings.json" > "${agent}/settings.json"
+    chown "${DEV_USER}:${DEV_GROUP}" "${agent}/settings.json"
+    chmod 0644 "${agent}/settings.json"
   fi
 }
 
@@ -183,7 +191,7 @@ main() {
   ensure_host_keys
   write_llm_env
   ensure_shell_sources
-  write_pi_note
+  install_pi_config
 
   if [ "$#" -eq 0 ]; then
     set -- /usr/sbin/sshd -D -e
