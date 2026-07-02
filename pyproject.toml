@@ -1,6 +1,6 @@
 [project]
 name = "seko-ai"
-version = "0.2.0"
+version = "0.2.1"
 description = "Self-service control plane for a shared local LLM backend (vLLM) and agentic coding workspaces."
 readme = "README.md"
 requires-python = ">=3.12"

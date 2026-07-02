@@ -130,7 +130,16 @@ class DockerBackend:
     # --- Container lifecycle ---
 
     def create(self, spec: WorkspaceSpec) -> None:  # pragma: no cover
-        self._client_lazy().containers.run(**build_run_kwargs(spec))
+        client = self._client_lazy()
+        # Force a pull so new workspaces pick up a freshly pushed image tag (docker's
+        # containers.run only pulls when the image is ABSENT, so a cached :latest would
+        # otherwise never update). Fall back to the cached image if the registry is
+        # unreachable or the pull fails, so workspace creation stays resilient.
+        try:
+            client.images.pull(spec.image)
+        except Exception as exc:  # noqa: BLE001 - best-effort refresh; cached image is fine
+            log.warning("workspace_image_pull_failed", image=spec.image, error=str(exc))
+        client.containers.run(**build_run_kwargs(spec))
 
     def start(self, name: str) -> None:  # pragma: no cover
         self._client_lazy().containers.get(name).start()
