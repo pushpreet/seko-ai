@@ -57,7 +57,13 @@ def build_compose(*, image: str, ssh_port: int = DEFAULT_LOCAL_SSH_PORT) -> str:
         "    ports:\n"
         f'      - "{ssh_port}:22"\n'
         "    volumes:\n"
+        "      # Named volume holds the container's own state (harness installs, auth, shell\n"
+        "      # config). Keep it separate from your code so it never pollutes your project\n"
+        "      # tree and stays owned by the container's dev user.\n"
         "      - seko-home:/home/dev\n"
+        "      # Your code lives on the host and is mounted at ~/workspace inside the\n"
+        "      # container. Override the host path with SEKO_CODE_DIR in .env.\n"
+        "      - ${SEKO_CODE_DIR:-./code}:/home/dev/workspace\n"
         "    security_opt:\n"
         "      - no-new-privileges:true\n"
         "\n"
@@ -88,12 +94,23 @@ def build_install(*, ssh_port: int = DEFAULT_LOCAL_SSH_PORT, harness: str = DEFA
         '  [ -f "$f" ] || { echo "missing $f (download it from the seko-ai UI)" >&2; exit 1; }\n'
         "done\n"
         "\n"
+        "# Put your projects in ./code — it is bind-mounted at ~/workspace in the container.\n"
+        'mkdir -p code\n'
+        "\n"
+        "# Make the container's dev user match you, so files under ./code stay editable on\n"
+        "# both sides (no root-owned files appearing in your project tree). Linux hosts only;\n"
+        "# harmless elsewhere. Appended once so re-running install.sh is idempotent.\n"
+        "if ! grep -q '^SEKO_DEV_UID=' .env; then\n"
+        '  { echo "SEKO_DEV_UID=$(id -u)"; echo "SEKO_DEV_GID=$(id -g)"; } >> .env\n'
+        "fi\n"
+        "\n"
         'echo "Pulling the workspace image and starting it..."\n'
         "docker compose pull\n"
         "docker compose up -d\n"
         "\n"
         'echo\n'
         f'echo "Workspace is up. Connect with: ssh dev@localhost -p {ssh_port}"\n'
+        f'echo "Your code is at ~/workspace (from ./code on this host)."\n'
         f'echo "Drive the {harness} harness inside: ssh dev@localhost -p '
         f'{ssh_port} -t {binary}"\n'
     )

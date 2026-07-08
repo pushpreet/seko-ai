@@ -59,9 +59,46 @@ ensure_home_layout() {
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}" 2>/dev/null \
     || { mkdir -p "${DEV_HOME}"; chmod 0755 "${DEV_HOME}" 2>/dev/null || true; }
   install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0700 "${SSH_DIR}"
-  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${SEKO_CONFIG_DIR}"
-  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 "${DEV_HOME}/workspace" "${DEV_HOME}/.pi/agent" "${DEV_HOME}/.omp/agent"
+  # `install -d a/b` creates the *parent* a with default (root) ownership — only the final
+  # operand gets -o/-g. So every parent level MUST be listed explicitly; otherwise dirs like
+  # ~/.omp end up root-owned and the dev user can't create ~/.omp/natives (where omp extracts
+  # its bundled pi_natives addon), so omp fails to start. Naming an existing dir here also
+  # re-chowns it, self-healing homes already broken by the earlier bug.
+  install -d -o "${DEV_USER}" -g "${DEV_GROUP}" -m 0755 \
+    "${DEV_HOME}/.config" "${SEKO_CONFIG_DIR}" \
+    "${DEV_HOME}/workspace" \
+    "${DEV_HOME}/.pi" "${DEV_HOME}/.pi/agent" \
+    "${DEV_HOME}/.omp" "${DEV_HOME}/.omp/agent"
   install -d -m 0755 /run/sshd
+}
+
+remap_dev_identity() {
+  # Optionally remap the dev user/group to match the host user, so bind-mounted code under
+  # ~/workspace stays editable on both sides (host uid vs container dev uid=1001 otherwise
+  # collide). Local self-host only; unset by default so the hosted service keeps uid 1001 to
+  # match the gocryptfs-owning seko user on the LLM host. Runs before any home chowns so all
+  # subsequent ownership uses the remapped ids.
+  local target_uid="${SEKO_DEV_UID:-}"
+  local target_gid="${SEKO_DEV_GID:-}"
+  [ -n "${target_uid}" ] || [ -n "${target_gid}" ] || return 0
+
+  local cur_uid cur_gid
+  cur_uid="$(id -u "${DEV_USER}")"
+  cur_gid="$(id -g "${DEV_USER}")"
+  target_uid="${target_uid:-${cur_uid}}"
+  target_gid="${target_gid:-${cur_gid}}"
+
+  if [ "${target_gid}" != "${cur_gid}" ]; then
+    log "remapping ${DEV_GROUP} gid ${cur_gid} -> ${target_gid}"
+    groupmod -g "${target_gid}" "${DEV_GROUP}"
+  fi
+  if [ "${target_uid}" != "${cur_uid}" ]; then
+    log "remapping ${DEV_USER} uid ${cur_uid} -> ${target_uid}"
+    usermod -u "${target_uid}" "${DEV_USER}"
+  fi
+  # usermod only re-chowns files under HOME; fix the harness installs that live outside it so
+  # `pi update self` / `omp update` keep working as the remapped dev user.
+  chown -R "${target_uid}:${target_gid}" /opt/pi /opt/omp 2>/dev/null || true
 }
 
 write_authorized_keys() {
@@ -210,6 +247,7 @@ install_omp_config() {
 }
 
 main() {
+  remap_dev_identity
   ensure_home_layout
   write_authorized_keys
   ensure_host_keys

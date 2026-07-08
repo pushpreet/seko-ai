@@ -34,12 +34,25 @@ def test_build_compose_references_image_and_port() -> None:
     assert "no-new-privileges:true" in compose
 
 
+def test_build_compose_isolates_home_and_mounts_code() -> None:
+    compose = kit_service.build_compose(image="ghcr.io/pushpreet/seko-workspace:latest")
+    # container state stays in a named volume, not the user's project tree
+    assert "- seko-home:/home/dev" in compose
+    assert "\nvolumes:\n  seko-home:\n" in compose
+    # user code is bind-mounted at a subpath, not as HOME
+    assert "${SEKO_CODE_DIR:-./code}:/home/dev/workspace" in compose
+
+
 def test_build_install_is_bash_and_checks_docker() -> None:
     install = kit_service.build_install()
     assert install.startswith("#!/usr/bin/env bash")
     assert "command -v docker" in install
     assert "docker compose up -d" in install
     assert "ssh dev@localhost -p 2222" in install
+    # prepares the code mount dir and matches the container uid to the host user
+    assert "mkdir -p code" in install
+    assert "SEKO_DEV_UID=$(id -u)" in install
+    assert "SEKO_DEV_GID=$(id -g)" in install
     # default harness is pi
     assert "-t pi" in install
     assert "Drive the pi harness" in install

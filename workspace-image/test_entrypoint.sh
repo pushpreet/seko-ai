@@ -62,7 +62,27 @@ docker run --rm \
     test -f /home/dev/.omp/agent/extensions/local-llm.ts
     test -f /home/dev/.omp/agent/config.yml
     grep -q "local/test-model" /home/dev/.omp/agent/config.yml
+    # harness state dirs (and their parents) must be dev-owned so omp can write ~/.omp/natives
+    for d in .config .pi .pi/agent .omp .omp/agent; do
+      test "$(stat -c %U "/home/dev/${d}")" = dev
+    done
     /usr/sbin/sshd -t
+  '
+
+echo "==> uid remap smoke test (SEKO_DEV_UID/GID)"
+docker run --rm \
+  -e SEKO_AUTHORIZED_KEYS="${sample_key}" \
+  -e LLM_BASE_URL="https://llm.example.test/v1" \
+  -e LLM_API_KEY="test-key" \
+  -e LLM_MODEL="test-model" \
+  -e SEKO_DEV_UID=1234 \
+  -e SEKO_DEV_GID=1234 \
+  seko-workspace:test \
+  bash -lc 'set -euo pipefail
+    test "$(id -u dev)" = 1234
+    test "$(id -g dev)" = 1234
+    test "$(stat -c %u /home/dev/.omp)" = 1234
+    test "$(stat -c %u /opt/omp/bin/omp)" = 1234
   '
 
 echo "==> smoke tests passed"
