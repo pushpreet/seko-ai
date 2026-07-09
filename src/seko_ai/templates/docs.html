@@ -102,16 +102,40 @@ print(resp.choices[0].message.content)</code></pre>
         Run the same hardened coding workspace image (<code>{{ workspace_image }}</code>) on
         your own machine, pointed at the shared LLM. The
         <a href="/selfhost" class="underline hover:text-sky-400">Self-host</a> page mints a key
-        and generates a personalized kit &mdash; three files (<code>.env</code>,
-        <code>docker-compose.yml</code>, <code>install.sh</code>) shown once.
+        and generates a personalized kit &mdash; a <code>.env</code>, a
+        <code>docker-compose.yml</code>, and an installer for your OS
+        (<code>install.sh</code> or <code>install.ps1</code>), shown once.
       </p>
     </div>
     <ol class="ml-4 list-decimal space-y-1 text-sm text-slate-300">
       <li>Add your SSH public key on your <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
       <li>On <a href="/selfhost" class="underline hover:text-sky-400">Self-host</a>, pick a harness and generate your kit.</li>
-      <li>Save the three files into a folder and run <code>bash install.sh</code> (needs Docker + Compose v2).</li>
+      <li>Save the files into a folder, then run the installer for your OS (see below).</li>
       <li>Connect: <code class="text-sky-300">ssh dev@localhost -p 2222</code></li>
     </ol>
+
+    <div class="grid gap-3 sm:grid-cols-2">
+      <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-sm">
+        <h3 class="font-medium text-slate-200">Linux / macOS</h3>
+        <p class="mt-1 text-slate-400">
+          Needs Docker + Compose v2. In the folder run
+          <code class="text-sky-300">bash install.sh</code>.
+        </p>
+      </div>
+      <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-sm">
+        <h3 class="font-medium text-slate-200">Windows</h3>
+        <p class="mt-1 text-slate-400">
+          Install <a href="https://docs.docker.com/desktop/install/windows-install/" class="underline hover:text-sky-400">Docker Desktop</a>
+          (WSL2 backend). In PowerShell run
+          <code class="text-sky-300">powershell -ExecutionPolicy Bypass -File .\install.ps1</code>,
+          then connect with the built-in OpenSSH client:
+          <code class="text-sky-300">ssh dev@localhost -p 2222</code>. Prefer bash? Run
+          <code>install.sh</code> from WSL2 or Git Bash instead &mdash; both target the same
+          Docker Desktop engine.
+        </p>
+      </div>
+    </div>
+
     <p class="text-sm text-slate-400">
       Everything runs locally except the model calls, which go to
       <code>{{ llm_base_url }}</code> with your key. You can also repoint

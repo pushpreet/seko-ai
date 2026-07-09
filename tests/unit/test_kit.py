@@ -58,6 +58,30 @@ def test_build_install_is_bash_and_checks_docker() -> None:
     assert "Drive the pi harness" in install
 
 
+def test_build_install_ps1_is_powershell_and_checks_docker() -> None:
+    install = kit_service.build_install_ps1()
+    assert install.startswith("#requires -Version 5")
+    assert "Get-Command docker" in install
+    assert "docker compose version" in install
+    assert "docker compose up -d" in install
+    assert "ssh dev@localhost -p 2222" in install
+    # creates the code mount dir the PowerShell way
+    assert "New-Item -ItemType Directory -Force -Path 'code'" in install
+    # no Linux uid matching on Docker Desktop
+    assert "id -u" not in install
+    assert "SEKO_DEV_UID" not in install
+    # default harness is pi
+    assert "-t pi" in install
+    assert "Drive the pi harness" in install
+
+
+def test_build_install_ps1_uses_selected_harness() -> None:
+    install = kit_service.build_install_ps1(harness="oh-my-pi")
+    assert "Drive the oh-my-pi harness" in install
+    assert "-t omp" in install
+    assert "-t pi" not in install
+
+
 def test_build_install_uses_selected_harness() -> None:
     install = kit_service.build_install(harness="oh-my-pi")
     assert "Drive the oh-my-pi harness" in install
@@ -69,16 +93,18 @@ def test_build_kit_threads_harness(default_settings: Settings) -> None:
     kit = kit_service.build_kit(
         default_settings, api_key="sk-xyz", authorized_keys="k", harness="oh-my-pi"
     )
-    assert "-t omp" in kit.install
+    assert "-t omp" in kit.install_sh
+    assert "-t omp" in kit.install_ps1
 
 
-def test_build_kit_bundles_all_three(default_settings: Settings) -> None:
+def test_build_kit_bundles_all_files(default_settings: Settings) -> None:
     kit = kit_service.build_kit(
         default_settings, api_key="sk-xyz", authorized_keys="ssh-ed25519 K"
     )
     assert "sk-xyz" in kit.env
     assert default_settings.workspace_image in kit.compose
-    assert kit.install.startswith("#!/usr/bin/env bash")
+    assert kit.install_sh.startswith("#!/usr/bin/env bash")
+    assert kit.install_ps1.startswith("#requires -Version 5")
 
 
 @pytest.fixture
@@ -128,9 +154,12 @@ def test_generate_kit_renders_files(client: TestClient, with_llm: None) -> None:
     assert resp.status_code == 200
     assert "docker-compose.yml" in resp.text
     assert "install.sh" in resp.text
+    assert "install.ps1" in resp.text  # Windows installer offered alongside bash
     assert "sk-fake-0001" in resp.text  # personalized key embedded once
     assert "AAAAC3NzaC1lZDI1NTE5" in resp.text  # their pubkey blob
     assert "-t pi" in resp.text  # default harness launch hint
+    assert "copyCode(this)" in resp.text  # per-file copy buttons
+    assert 'data-os-tab="windows"' in resp.text  # OS selector present
 
 
 def test_generate_kit_honors_harness(client: TestClient, with_llm: None) -> None:

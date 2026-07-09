@@ -17,11 +17,18 @@ DEFAULT_LOCAL_SSH_PORT = 2222
 
 @dataclass(frozen=True)
 class SelfHostKit:
-    """The three rendered files handed to a user."""
+    """The rendered files handed to a user.
+
+    Both installers are always generated (with the chosen harness baked in); the web UI's OS
+    selector decides which one to surface. ``install_sh`` targets Linux/macOS (and doubles as
+    the WSL2/Git Bash fallback for Windows); ``install_ps1`` is the native Windows PowerShell
+    installer.
+    """
 
     env: str
     compose: str
-    install: str
+    install_sh: str
+    install_ps1: str
 
 
 def _shell_single_quote(value: str) -> str:
@@ -116,6 +123,58 @@ def build_install(*, ssh_port: int = DEFAULT_LOCAL_SSH_PORT, harness: str = DEFA
     )
 
 
+def build_install_ps1(
+    *, ssh_port: int = DEFAULT_LOCAL_SSH_PORT, harness: str = DEFAULT_HARNESS
+) -> str:
+    """Render install.ps1, the native Windows PowerShell installer.
+
+    Mirrors :func:`build_install` but skips the Linux UID matching (Docker Desktop's VM
+    virtualizes bind-mount permissions, so ``./code`` stays editable without it) and speaks
+    PowerShell. Run from a directory holding docker-compose.yml and .env.
+    """
+    binary = harness_binary(harness)
+    return (
+        "#requires -Version 5\n"
+        "# seko-ai self-host installer (Windows / PowerShell). Run in a directory containing\n"
+        "# docker-compose.yml and .env (both downloaded from the seko-ai web UI).\n"
+        "#\n"
+        "# If PowerShell blocks the script, run it once with:\n"
+        "#   powershell -ExecutionPolicy Bypass -File .\\install.ps1\n"
+        "$ErrorActionPreference = 'Stop'\n"
+        "\n"
+        "if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {\n"
+        "  Write-Error 'Docker Desktop is required: https://docs.docker.com/desktop/install/windows-install/'\n"
+        "  exit 1\n"
+        "}\n"
+        "try { docker compose version | Out-Null } catch {\n"
+        "  Write-Error 'Docker Compose v2 is required (bundled with Docker Desktop).'\n"
+        "  exit 1\n"
+        "}\n"
+        "\n"
+        "foreach ($f in 'docker-compose.yml', '.env') {\n"
+        "  if (-not (Test-Path $f)) {\n"
+        "    Write-Error \"missing $f (download it from the seko-ai UI)\"\n"
+        "    exit 1\n"
+        "  }\n"
+        "}\n"
+        "\n"
+        "# Put your projects in .\\code - it is bind-mounted at ~/workspace in the container.\n"
+        "# Docker Desktop keeps these files editable from both sides, so no uid matching is\n"
+        "# needed (unlike the Linux installer).\n"
+        "New-Item -ItemType Directory -Force -Path 'code' | Out-Null\n"
+        "\n"
+        "Write-Host 'Pulling the workspace image and starting it...'\n"
+        "docker compose pull\n"
+        "docker compose up -d\n"
+        "\n"
+        "Write-Host ''\n"
+        f"Write-Host 'Workspace is up. Connect with: ssh dev@localhost -p {ssh_port}'\n"
+        "Write-Host 'Your code is at ~/workspace (from .\\code on this host).'\n"
+        f"Write-Host 'Drive the {harness} harness inside: ssh dev@localhost -p "
+        f"{ssh_port} -t {binary}'\n"
+    )
+
+
 def build_kit(
     settings: Settings,
     *,
@@ -132,5 +191,6 @@ def build_kit(
             authorized_keys=authorized_keys,
         ),
         compose=build_compose(image=settings.workspace_image),
-        install=build_install(harness=harness),
+        install_sh=build_install(harness=harness),
+        install_ps1=build_install_ps1(harness=harness),
     )

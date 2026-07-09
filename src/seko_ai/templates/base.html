@@ -32,6 +32,43 @@
         }
       };
     </script>
+    <script>
+      window.copyCode = async function (btn) {
+        const sel = btn.dataset.target;
+        const el = sel ? document.querySelector(sel) : btn.closest("figure")?.querySelector("pre");
+        const text = el ? el.textContent : "";
+        if (!text || !navigator.clipboard) return;
+
+        const label = btn.querySelector("[data-copy-label]") || btn;
+        const original = label.textContent;
+        try {
+          await navigator.clipboard.writeText(text);
+          label.textContent = "Copied!";
+          setTimeout(() => {
+            label.textContent = original;
+          }, 1200);
+        } catch {
+          label.textContent = "Copy failed";
+          setTimeout(() => {
+            label.textContent = original;
+          }, 1200);
+        }
+      };
+    </script>
+    <script>
+      window.selectKitOs = function (os) {
+        document.querySelectorAll("[data-os-panel]").forEach((el) => {
+          el.classList.toggle("hidden", el.dataset.osPanel !== os);
+        });
+        document.querySelectorAll("[data-os-tab]").forEach((btn) => {
+          const active = btn.dataset.osTab === os;
+          btn.classList.toggle("bg-sky-600", active);
+          btn.classList.toggle("text-white", active);
+          btn.classList.toggle("bg-slate-800", !active);
+          btn.classList.toggle("text-slate-300", !active);
+        });
+      };
+    </script>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="h-full text-slate-100">

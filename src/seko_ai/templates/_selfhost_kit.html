@@ -1,28 +1,59 @@
-{# Rendered kit: three files shown once (the .env contains the one-time key). #}
+{# Rendered kit: files shown once (the .env contains the one-time key). Each file is a
+   "code card" (filename header + copy button over a distinct code body); the two installers
+   sit behind a client-side OS toggle so switching OS never re-POSTs (the key is minted once). #}
+{% macro code_card(name, body) %}
+  <figure class="overflow-hidden rounded-lg border border-slate-800">
+    <figcaption class="flex items-center justify-between border-b border-slate-800 bg-slate-800/70 px-3 py-2">
+      <span class="font-mono text-xs text-slate-200">{{ name }}</span>
+      <button type="button"
+        class="rounded bg-slate-700 px-2 py-0.5 text-xs text-slate-100 hover:bg-slate-600"
+        onclick="copyCode(this)">
+        <span data-copy-label>Copy</span>
+      </button>
+    </figcaption>
+    <pre class="overflow-x-auto bg-slate-950 p-3 text-xs text-slate-200"><code>{{ body }}</code></pre>
+  </figure>
+{% endmacro %}
 {% if error %}
   <div class="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
 {% elif kit %}
   <div class="space-y-4">
     <div class="rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
-      Save these three files into a new folder, then run <code>bash install.sh</code>.
-      The key in <code>.env</code> is shown once.
+      Save these files into a new folder, then run the installer for your OS below. The key
+      in <code>.env</code> is shown once.
     </div>
 
-    <div>
-      <div class="mb-1 flex items-center justify-between">
-        <h3 class="font-medium">.env</h3>
+    {{ code_card(".env", kit.env) }}
+    {{ code_card("docker-compose.yml", kit.compose) }}
+
+    <div class="space-y-2">
+      <div class="flex items-center gap-2">
+        <span class="text-sm text-slate-400">Installer for:</span>
+        <div class="inline-flex overflow-hidden rounded-lg border border-slate-800 text-xs">
+          <button type="button" data-os-tab="unix"
+            class="bg-sky-600 px-3 py-1 text-white"
+            onclick="selectKitOs('unix')">Linux / macOS</button>
+          <button type="button" data-os-tab="windows"
+            class="bg-slate-800 px-3 py-1 text-slate-300"
+            onclick="selectKitOs('windows')">Windows</button>
+        </div>
       </div>
-      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.env }}</code></pre>
-    </div>
 
-    <div>
-      <h3 class="mb-1 font-medium">docker-compose.yml</h3>
-      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.compose }}</code></pre>
-    </div>
+      <div data-os-panel="unix" class="space-y-1">
+        <p class="text-sm text-slate-400">
+          Run <code>bash install.sh</code> in the folder (needs Docker + Compose v2).
+        </p>
+        {{ code_card("install.sh", kit.install_sh) }}
+      </div>
 
-    <div>
-      <h3 class="mb-1 font-medium">install.sh</h3>
-      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>{{ kit.install }}</code></pre>
+      <div data-os-panel="windows" class="hidden space-y-1">
+        <p class="text-sm text-slate-400">
+          In PowerShell, run <code>powershell -ExecutionPolicy Bypass -File .\install.ps1</code>
+          in the folder (needs Docker Desktop). Prefer bash? Run <code>install.sh</code> from
+          WSL2 or Git Bash instead.
+        </p>
+        {{ code_card("install.ps1", kit.install_ps1) }}
+      </div>
     </div>
   </div>
 {% endif %}
