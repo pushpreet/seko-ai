@@ -1,18 +1,29 @@
-"""Per-user LLM usage summaries, sourced from LiteLLM's activity API."""
+"""Per-user LLM usage summaries, derived from LiteLLM's per-key activity breakdown.
+
+LiteLLM's ``/user/daily/activity`` endpoint ignores a ``user_id`` filter for admin
+(master-key) callers and returns *global* totals — so seko fetches the global activity
+once and attributes each key's usage to its owner using the local :class:`ApiKey` table
+(matched by LiteLLM token, falling back to the key alias). This avoids showing the same
+combined total for every user.
+"""
 
 from __future__ import annotations
 
+from collections import defaultdict
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from seko_ai.models import User
-from seko_ai.services.keys import litellm_user_id
+from seko_ai.models import ApiKey, User
 from seko_ai.services.litellm_client import LiteLLMClient, LiteLLMError
+
+USAGE_WINDOW_DAYS = 30
 
 
 @dataclass(frozen=True)
 class UsageSummary:
-    """Aggregated usage for a user (best-effort from LiteLLM's response)."""
+    """Aggregated usage for a user, summed over that user's LiteLLM keys."""
 
     username: str
     total_tokens: int
@@ -22,72 +33,94 @@ class UsageSummary:
     available: bool = True
 
 
-def _num(value: Any, default: float = 0.0) -> float:
+@dataclass
+class _Totals:
+    total_tokens: int = 0
+    total_requests: int = 0
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+
+
+def _num(value: Any) -> int:
     try:
-        return float(value)
+        return int(float(value))
     except (TypeError, ValueError):
-        return default
+        return 0
 
 
-def summarize(username: str, raw: dict[str, Any], *, available: bool = True) -> UsageSummary:
-    """Reduce a LiteLLM activity payload to totals, tolerating schema variation."""
-    meta = raw.get("metadata") or {}
-    results = raw.get("results") or []
+def _key_index(api_keys: Iterable[ApiKey]) -> tuple[dict[str, int], dict[str, int]]:
+    """Map LiteLLM token -> user_id and key_alias -> user_id from local key rows."""
+    by_token: dict[str, int] = {}
+    by_alias: dict[str, int] = {}
+    for key in api_keys:
+        if key.litellm_key_id:
+            by_token[key.litellm_key_id] = key.user_id
+        if key.key_alias:
+            by_alias[key.key_alias] = key.user_id
+    return by_token, by_alias
 
-    tokens = meta.get("total_tokens")
-    requests = meta.get("total_api_requests", meta.get("total_requests"))
-    prompt_tokens = _first_present(meta, "total_prompt_tokens", "prompt_tokens")
-    completion_tokens = _first_present(meta, "total_completion_tokens", "completion_tokens")
 
-    if tokens is None:
-        tokens = sum(_num(_metric(r, "total_tokens")) for r in results)
-    if requests is None:
-        requests = sum(_num(_metric(r, "api_requests")) for r in results)
-    if prompt_tokens is None:
-        prompt_tokens = sum(_num(_metric(r, "prompt_tokens")) for r in results)
-    if completion_tokens is None:
-        completion_tokens = sum(_num(_metric(r, "completion_tokens")) for r in results)
+def attribute(
+    rows: Iterable[dict[str, Any]],
+    by_token: dict[str, int],
+    by_alias: dict[str, int],
+) -> dict[int, _Totals]:
+    """Bucket each api_key's per-day metrics into its owning seko user's totals.
 
+    Keys we don't recognise (e.g. blank/legacy ``user_id`` traffic) are ignored.
+    """
+    totals: dict[int, _Totals] = defaultdict(_Totals)
+    for row in rows:
+        breakdown = (row.get("breakdown") or {}).get("api_keys") or {}
+        for token, entry in breakdown.items():
+            metrics = entry.get("metrics") or {}
+            alias = (entry.get("metadata") or {}).get("key_alias")
+            uid = by_token.get(token)
+            if uid is None and alias is not None:
+                uid = by_alias.get(alias)
+            if uid is None:
+                continue
+            bucket = totals[uid]
+            bucket.total_tokens += _num(metrics.get("total_tokens"))
+            bucket.total_requests += _num(metrics.get("api_requests"))
+            bucket.prompt_tokens += _num(metrics.get("prompt_tokens"))
+            bucket.completion_tokens += _num(metrics.get("completion_tokens"))
+    return totals
+
+
+def _summary(user: User, totals: _Totals | None, *, available: bool = True) -> UsageSummary:
+    t = totals or _Totals()
     return UsageSummary(
-        username=username,
-        total_tokens=int(_num(tokens)),
-        total_requests=int(_num(requests)),
-        prompt_tokens=int(_num(prompt_tokens)),
-        completion_tokens=int(_num(completion_tokens)),
+        username=user.username,
+        total_tokens=t.total_tokens,
+        total_requests=t.total_requests,
+        prompt_tokens=t.prompt_tokens,
+        completion_tokens=t.completion_tokens,
         available=available,
     )
 
 
-def _first_present(mapping: dict[str, Any], *keys: str) -> Any:
-    for key in keys:
-        value = mapping.get(key)
-        if value is not None:
-            return value
-    return None
+async def collect(
+    litellm: LiteLLMClient,
+    users: Sequence[User],
+    api_keys: Iterable[ApiKey],
+    *,
+    window_days: int = USAGE_WINDOW_DAYS,
+) -> dict[int, UsageSummary]:
+    """Return ``{user.id: UsageSummary}`` for ``users`` over the recent window.
 
-
-def _metric(result: dict[str, Any], key: str) -> Any:
-    metrics = result.get("metrics") or {}
-    return metrics.get(key, result.get(key))
-
-
-async def user_summary(litellm: LiteLLMClient, user: User) -> UsageSummary:
-    """Fetch and summarize a single user's usage; degrade gracefully on error."""
-    from datetime import UTC, datetime, timedelta
-
+    Fetches the global daily activity once and attributes ``api_keys`` usage to owners.
+    Degrades gracefully: on a LiteLLM error every summary is marked unavailable (zeros).
+    """
     end = datetime.now(UTC).date()
-    start = end - timedelta(days=30)
+    start = end - timedelta(days=window_days)
     try:
-        raw = await litellm.user_daily_activity(
-            litellm_user_id(user), start_date=start.isoformat(), end_date=end.isoformat()
+        rows = await litellm.daily_activity(
+            start_date=start.isoformat(), end_date=end.isoformat()
         )
     except LiteLLMError:
-        return UsageSummary(
-            username=user.username,
-            total_tokens=0,
-            total_requests=0,
-            prompt_tokens=0,
-            completion_tokens=0,
-            available=False,
-        )
-    return summarize(user.username, raw)
+        return {user.id: _summary(user, None, available=False) for user in users}
+
+    by_token, by_alias = _key_index(api_keys)
+    totals = attribute(rows, by_token, by_alias)
+    return {user.id: _summary(user, totals.get(user.id)) for user in users}

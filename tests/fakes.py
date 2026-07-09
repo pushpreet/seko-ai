@@ -49,8 +49,10 @@ class FakeLiteLLMClient:
     async def key_info(self, key: str) -> dict[str, Any]:
         return {"key": key, "spend": 0.0}
 
-    async def user_daily_activity(self, user_id: str, **kwargs: Any) -> dict[str, Any]:
-        return {"user_id": user_id, "results": []}
+    async def daily_activity(
+        self, *, start_date: str, end_date: str, page_size: int = 1000
+    ) -> list[dict[str, Any]]:
+        return []
 
 
 class FakeBackend:

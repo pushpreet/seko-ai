@@ -127,11 +127,33 @@ class LiteLLMClient:
         """Return metadata/spend for a single key."""
         return await self._get("/key/info", params={"key": key})
 
-    async def user_daily_activity(
-        self, user_id: str, *, start_date: str, end_date: str
-    ) -> dict[str, Any]:
-        """Return per-user usage/spend aggregates for a date range (YYYY-MM-DD)."""
-        return await self._get(
-            "/user/daily/activity",
-            params={"user_id": user_id, "start_date": start_date, "end_date": end_date},
-        )
+    async def daily_activity(
+        self, *, start_date: str, end_date: str, page_size: int = 1000
+    ) -> list[dict[str, Any]]:
+        """Return all per-day activity rows (admin/global) for a date range (YYYY-MM-DD).
+
+        Each row carries a ``breakdown.api_keys`` map (per-key metrics + ``key_alias``),
+        which the usage service buckets by owner. We deliberately fetch the *global* view
+        rather than pass a ``user_id`` filter: LiteLLM's ``/user/daily/activity`` ignores a
+        ``user_id`` query param for admin (master-key) callers and would otherwise return the
+        same combined total for every user. All pages are followed.
+        """
+        rows: list[dict[str, Any]] = []
+        page = 1
+        while True:
+            data = await self._get(
+                "/user/daily/activity",
+                params={
+                    "start_date": start_date,
+                    "end_date": end_date,
+                    "page": page,
+                    "page_size": page_size,
+                },
+            )
+            rows.extend(data.get("results") or [])
+            meta = data.get("metadata") or {}
+            total_pages = int(meta.get("total_pages") or 1)
+            if page >= total_pages:
+                break
+            page += 1
+        return rows

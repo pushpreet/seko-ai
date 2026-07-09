@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from seko_ai.db import get_session
 from seko_ai.deps import get_current_db_user, get_litellm_client
-from seko_ai.models import User
+from seko_ai.models import ApiKey, User
 from seko_ai.services import usage as usage_service
 from seko_ai.services.litellm_client import LiteLLMClient
 
@@ -30,12 +30,22 @@ async def usage_page(
     session: Session = Depends(get_session),  # noqa: B008
     litellm: LiteLLMClient = Depends(get_litellm_client),  # noqa: B008
 ) -> HTMLResponse:
-    """Show the signed-in user's usage; admins additionally get an all-users table."""
-    mine = await usage_service.user_summary(litellm, user)
-    everyone = None
-    if user.is_admin:
-        users = list(session.execute(select(User)).scalars().all())
-        everyone = [await usage_service.user_summary(litellm, u) for u in users]
+    """Show the signed-in user's usage; admins additionally get an all-users table.
+
+    Usage is computed from a single global LiteLLM activity fetch, bucketed per user by
+    their keys (see ``services.usage``), so every user gets their own real totals.
+    """
+    users = (
+        list(session.execute(select(User)).scalars().all()) if user.is_admin else [user]
+    )
+    user_ids = [u.id for u in users]
+    api_keys = list(
+        session.execute(select(ApiKey).where(ApiKey.user_id.in_(user_ids))).scalars().all()
+    )
+    summaries = await usage_service.collect(litellm, users, api_keys)
+
+    mine = summaries[user.id]
+    everyone = [summaries[u.id] for u in users] if user.is_admin else None
     return _templates().TemplateResponse(
         request,
         "usage.html",
