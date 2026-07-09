@@ -8,6 +8,36 @@ Deferred features and improvements, most recent first.
 > admin procedure in `../psx-homelab/docs/seko-ai-runbook.md` §5a. The item below (public,
 > no-Tailscale access) remains the deferred, install-nothing alternative.
 
+## Download full hosted-workspace home
+
+**Status:** deferred · **Requested:** 2026-07-08
+
+The self-host `/selfhost` kit is now downloadable as a single `.zip` from the browser. A
+natural follow-up: let a user **download the entire contents of a hosted workspace's home**
+(their code + files) straight from the `/workspaces` page, e.g. before terminating.
+
+**Why it's not trivial:** a hosted workspace home is a **gocryptfs cleartext mount** on epyc
+(`<volume>/cleartext`), reachable only via **Docker-over-SSH** and only while the workspace is
+**running** (mounted). There is no HTTP path to those files today, and homes can be large.
+
+### Sketch
+- Add a `ContainerBackend` method (e.g. `archive_home(home_path) -> stream`) that runs
+  `tar czf -` (or `zip -r -`) over the existing SSH connection against the cleartext dir and
+  streams stdout back.
+- Add a `GET /workspaces/{id}/download` route (ownership-checked, running-only) returning a
+  `StreamingResponse` of `application/gzip` with a sensible filename.
+- Add a "Download files" button to `_workspaces_panel.html`, shown only when the workspace is
+  `running`.
+
+### Considerations
+- **Size / cost:** streaming a multi-GB home through core-infra → user could be slow; consider
+  excluding heavy caches (`node_modules`, `.cache`, venvs) or offering a scoped `~/workspace`
+  archive only.
+- **Security:** this exposes cleartext over the web app (currently only ciphertext leaves epyc
+  via restic). Keep it ownership-gated behind Authelia; never allow arbitrary path traversal.
+- **Alternative:** users can already `scp`/`rsync` over Tailscale (`scp -P <port>
+  dev@<host>:...`); document that as the zero-build option and treat the button as convenience.
+
 ## Public (no-Tailscale) workspace access
 
 **Status:** deferred · **Requested:** 2026-07-01

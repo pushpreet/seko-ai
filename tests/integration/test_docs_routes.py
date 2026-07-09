@@ -38,3 +38,15 @@ def test_docs_includes_live_endpoint_values(client: TestClient) -> None:
     assert settings.llm_public_url in resp.text
     assert settings.llm_model in resp.text
     assert settings.workspace_ssh_host in resp.text
+
+
+def test_docs_lists_prerequisites(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert resp.status_code == 200
+    # Both the local and remote sections gain an upfront prerequisites list.
+    assert resp.text.count("Prerequisites") >= 2
+    # SSH keypair how-to (shared) plus the per-flow tools (Docker for local, Tailscale remote).
+    assert "ssh-keygen -t ed25519" in resp.text
+    assert "Docker + Compose v2" in resp.text
+    assert "Tailscale" in resp.text

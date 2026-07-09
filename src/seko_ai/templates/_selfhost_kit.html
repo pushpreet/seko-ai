@@ -1,8 +1,8 @@
 {# Rendered kit: files shown once (the .env contains the one-time key). Each file is a
    "code card" (filename header + copy button over a distinct code body); the two installers
    sit behind a client-side OS toggle so switching OS never re-POSTs (the key is minted once). #}
-{% macro code_card(name, body) %}
-  <figure class="overflow-hidden rounded-lg border border-slate-800">
+{% macro code_card(name, body, os=None) %}
+  <figure class="overflow-hidden rounded-lg border border-slate-800" data-kit-file="{{ name }}"{% if os %} data-kit-os="{{ os }}"{% endif %}>
     <figcaption class="flex items-center justify-between border-b border-slate-800 bg-slate-800/70 px-3 py-2">
       <span class="font-mono text-xs text-slate-200">{{ name }}</span>
       <button type="button"
@@ -18,9 +18,14 @@
   <div class="rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">{{ error }}</div>
 {% elif kit %}
   <div class="space-y-4">
-    <div class="rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
-      Save these files into a new folder, then run the installer for your OS below. The key
-      in <code>.env</code> is shown once.
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-emerald-700 bg-emerald-950/40 p-3 text-sm text-emerald-200">
+      <span>
+        Save these files into a new folder, then run the installer for your OS below. The key
+        in <code>.env</code> is shown once.
+      </span>
+      <button type="button"
+        class="shrink-0 rounded bg-emerald-700 px-3 py-1 text-xs font-medium text-emerald-50 hover:bg-emerald-600"
+        onclick="downloadKit(this)">Download all (.zip)</button>
     </div>
 
     {{ code_card(".env", kit.env) }}
@@ -43,7 +48,7 @@
         <p class="text-sm text-slate-400">
           Run <code>bash install.sh</code> in the folder (needs Docker + Compose v2).
         </p>
-        {{ code_card("install.sh", kit.install_sh) }}
+        {{ code_card("install.sh", kit.install_sh, os="unix") }}
       </div>
 
       <div data-os-panel="windows" class="hidden space-y-1">
@@ -52,7 +57,7 @@
           in the folder (needs Docker Desktop). Prefer bash? Run <code>install.sh</code> from
           WSL2 or Git Bash instead.
         </p>
-        {{ code_card("install.ps1", kit.install_ps1) }}
+        {{ code_card("install.ps1", kit.install_ps1, os="windows") }}
       </div>
     </div>
   </div>

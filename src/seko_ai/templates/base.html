@@ -69,6 +69,78 @@
         });
       };
     </script>
+    <script>
+      // Minimal client-side ZIP (STORE / no compression) so the self-host kit can be saved
+      // as one file without a server round-trip (the one-time key already lives in the page).
+      function _kitCrc32(bytes) {
+        let c = 0xffffffff;
+        for (let i = 0; i < bytes.length; i++) {
+          c = c ^ bytes[i];
+          for (let k = 0; k < 8; k++) {
+            c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+          }
+        }
+        return (c ^ 0xffffffff) >>> 0;
+      }
+      function _kitZip(files) {
+        const enc = new TextEncoder();
+        const u16 = (v) => [v & 0xff, (v >>> 8) & 0xff];
+        const u32 = (v) => [v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, (v >>> 24) & 0xff];
+        const local = [];
+        const central = [];
+        let offset = 0;
+        for (const file of files) {
+          const name = enc.encode(file.name);
+          const data = enc.encode(file.text);
+          const crc = _kitCrc32(data);
+          const size = data.length;
+          const header = [].concat(
+            u32(0x04034b50), u16(20), u16(0), u16(0), u16(0), u16(0),
+            u32(crc), u32(size), u32(size), u16(name.length), u16(0)
+          );
+          local.push(new Uint8Array(header), name, data);
+          const cd = [].concat(
+            u32(0x02014b50), u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+            u32(crc), u32(size), u32(size), u16(name.length), u16(0), u16(0),
+            u16(0), u16(0), u32(0), u32(offset)
+          );
+          central.push(new Uint8Array(cd), name);
+          offset += header.length + name.length + size;
+        }
+        const cdStart = offset;
+        const cdSize = central.reduce((n, c) => n + c.length, 0);
+        const eocd = [].concat(
+          u32(0x06054b50), u16(0), u16(0), u16(files.length), u16(files.length),
+          u32(cdSize), u32(cdStart), u16(0)
+        );
+        return new Blob(local.concat(central, [new Uint8Array(eocd)]), { type: "application/zip" });
+      }
+      window.downloadKit = function (btn) {
+        // Collect the visible kit files: .env, docker-compose.yml, and the installer in the
+        // currently-selected OS panel (hidden panels use display:none -> offsetParent null).
+        const files = Array.from(document.querySelectorAll("[data-kit-file]"))
+          .filter((fig) => fig.offsetParent !== null)
+          .map((fig) => {
+            const pre = fig.querySelector("pre");
+            return { name: fig.dataset.kitFile, text: pre ? pre.textContent : "" };
+          })
+          .filter((f) => f.name && f.text);
+        if (!files.length) return;
+        const url = URL.createObjectURL(_kitZip(files));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "seko-workspace-kit.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        const original = btn.textContent;
+        btn.textContent = "Downloaded!";
+        setTimeout(() => {
+          btn.textContent = original;
+        }, 1200);
+      };
+    </script>
     <link rel="stylesheet" href="/static/app.css" />
   </head>
   <body class="h-full text-slate-100">

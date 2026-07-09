@@ -107,8 +107,22 @@ print(resp.choices[0].message.content)</code></pre>
         (<code>install.sh</code> or <code>install.ps1</code>), shown once.
       </p>
     </div>
+    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+      <h3 class="font-medium text-slate-200">Prerequisites</h3>
+      <ul class="mt-2 ml-4 list-disc space-y-1 text-slate-400">
+        <li><strong class="text-slate-300">SSH client</strong> &mdash; built into macOS, Linux,
+          and Windows 10+ (the <code>ssh</code> command). Used to log into the workspace.</li>
+        <li><strong class="text-slate-300">An SSH keypair.</strong> If you don't have one, run
+          <code class="text-sky-300">ssh-keygen -t ed25519</code>, then paste the contents of
+          <code>~/.ssh/id_ed25519.pub</code> on your
+          <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
+        <li><strong class="text-slate-300">Docker + Compose v2</strong> (Linux/macOS) or
+          <a href="https://docs.docker.com/desktop/install/windows-install/" class="underline hover:text-sky-400">Docker Desktop</a>
+          with the WSL2 backend (Windows).</li>
+      </ul>
+    </div>
+
     <ol class="ml-4 list-decimal space-y-1 text-sm text-slate-300">
-      <li>Add your SSH public key on your <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
       <li>On <a href="/selfhost" class="underline hover:text-sky-400">Self-host</a>, pick a harness and generate your kit.</li>
       <li>Save the files into a folder, then run the installer for your OS (see below).</li>
       <li>Connect: <code class="text-sky-300">ssh dev@localhost -p 2222</code></li>
@@ -155,6 +169,20 @@ print(resp.choices[0].message.content)</code></pre>
       </p>
     </div>
 
+    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+      <h3 class="font-medium text-slate-200">Prerequisites</h3>
+      <ul class="mt-2 ml-4 list-disc space-y-1 text-slate-400">
+        <li><strong class="text-slate-300">SSH client</strong> &mdash; built into macOS, Linux,
+          and Windows 10+ (the <code>ssh</code> command).</li>
+        <li><strong class="text-slate-300">An SSH keypair.</strong> If you don't have one, run
+          <code class="text-sky-300">ssh-keygen -t ed25519</code>, then paste the contents of
+          <code>~/.ssh/id_ed25519.pub</code> on your
+          <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
+        <li><strong class="text-slate-300">Tailscale</strong> &mdash; installed once and signed
+          in via an admin invite (one-time setup below). No other ports or hosts are exposed.</li>
+      </ul>
+    </div>
+
     <div class="rounded-lg border border-sky-900 bg-sky-950/30 p-3 text-sm text-sky-100">
       <h3 class="font-medium">One-time Tailscale setup</h3>
       <ol class="mt-1 ml-4 list-decimal space-y-1">
@@ -167,7 +195,6 @@ print(resp.choices[0].message.content)</code></pre>
     </div>
 
     <ol class="ml-4 list-decimal space-y-1 text-sm text-slate-300">
-      <li>Add your SSH public key on your <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
       <li>Launch a workspace on the <a href="/workspaces" class="underline hover:text-sky-400">Workspaces</a> page.</li>
       <li>Copy its exact connect command from that page &mdash; it looks like:
         <code class="text-sky-300">ssh dev@{{ workspace_ssh_host }} -p &lt;port&gt;</code>
