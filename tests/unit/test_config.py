@@ -15,8 +15,15 @@ def test_settings_env_prefix(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.llm_model == "custom-model"
 
 
+def test_service_usage_aliases_env_parsing(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SEKO_SERVICE_USAGE_ALIASES", "hermes, foo ")
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+    assert settings.service_usage_aliases == ["hermes", "foo"]
+
+
 def test_settings_defaults() -> None:
     settings = Settings(_env_file=None)  # type: ignore[call-arg]
     assert settings.oidc_users_group == "llm_users"
     assert settings.oidc_admins_group == "homelab_admins"
+    assert settings.service_usage_aliases == ["hermes"]
     assert settings.workspace_ssh_port_min < settings.workspace_ssh_port_max

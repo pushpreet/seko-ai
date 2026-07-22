@@ -102,5 +102,6 @@ def test_admin_sees_all_users_table(
     resp = client.get("/usage")
     assert resp.status_code == 200
     assert "(admin)" in resp.text
-    assert "All users" in resp.text
+    assert "Users" in resp.text
+    assert "Services / Agents" in resp.text
     assert "4,200" in resp.text  # admin's own key usage shown in the table

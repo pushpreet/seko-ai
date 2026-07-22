@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     # --- LiteLLM proxy (per-user virtual keys) ---
     litellm_base_url: str = "http://10.37.20.50:4000"
     litellm_master_key: str = ""
+    service_usage_aliases_raw: str = Field(
+        default="hermes",
+        validation_alias=AliasChoices(
+            "service_usage_aliases_raw",
+            "service_usage_aliases",
+            "SEKO_SERVICE_USAGE_ALIASES",
+        ),
+    )
     # Public endpoint handed to users/workspaces for their key.
     llm_public_url: str = "https://llm.pushprh.com/v1"
     llm_model: str = "qwen3.6-27b"
@@ -65,6 +73,13 @@ class Settings(BaseSettings):
     restic_password: str = ""
 
     debug: bool = Field(default=False)
+
+    @property
+    def service_usage_aliases(self) -> list[str]:
+        """Alias prefixes shown as service/agent rows in the usage dashboard."""
+        return [
+            alias.strip() for alias in self.service_usage_aliases_raw.split(",") if alias.strip()
+        ]
 
 
 @lru_cache

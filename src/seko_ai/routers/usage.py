@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from seko_ai.auth import get_app_settings
 from seko_ai.db import get_session
 from seko_ai.deps import get_current_db_user, get_litellm_client
 from seko_ai.models import ApiKey, User
@@ -35,19 +36,31 @@ async def usage_page(
     Usage is computed from a single global LiteLLM activity fetch, bucketed per user by
     their keys (see ``services.usage``), so every user gets their own real totals.
     """
-    users = (
-        list(session.execute(select(User)).scalars().all()) if user.is_admin else [user]
-    )
+    users = list(session.execute(select(User)).scalars().all()) if user.is_admin else [user]
     user_ids = [u.id for u in users]
     api_keys = list(
         session.execute(select(ApiKey).where(ApiKey.user_id.in_(user_ids))).scalars().all()
     )
-    summaries = await usage_service.collect(litellm, users, api_keys)
+    settings = get_app_settings(request)
+    report = await usage_service.collect(
+        litellm,
+        users,
+        api_keys,
+        service_prefixes=settings.service_usage_aliases,
+    )
 
-    mine = summaries[user.id]
-    everyone = [summaries[u.id] for u in users] if user.is_admin else None
+    mine = report.users[user.id]
+    context = {"user": request.session.get("user"), "mine": mine, "everyone": None}
+    if user.is_admin:
+        context.update(
+            {
+                "everyone": [report.users[u.id] for u in users],
+                "services": report.services,
+                "unknown": report.unknown,
+            }
+        )
     return _templates().TemplateResponse(
         request,
         "usage.html",
-        {"user": request.session.get("user"), "mine": mine, "everyone": everyone},
+        context,
     )

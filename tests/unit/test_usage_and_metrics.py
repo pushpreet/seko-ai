@@ -53,7 +53,7 @@ def test_attribute_buckets_keys_to_owners() -> None:
         _day(("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30))),
         _day(("tok-2", "seko-bob-1", _metrics(50, 1, 35, 15))),
     ]
-    totals = us.attribute(rows, by_token, by_alias)
+    totals = us.attribute(rows, by_token, by_alias).users
     assert totals[1].total_tokens == 100
     assert totals[1].total_requests == 2
     assert totals[2].total_tokens == 50
@@ -72,7 +72,7 @@ def test_attribute_sums_multiple_keys_and_days_per_user() -> None:
         ),
         _day(("tok-a", "seko-alice-a", _metrics(5, 1, 4, 1))),
     ]
-    totals = us.attribute(rows, by_token, by_alias)
+    totals = us.attribute(rows, by_token, by_alias).users
     assert totals[1].total_tokens == 115
     assert totals[1].total_requests == 4
     assert totals[1].prompt_tokens == 80
@@ -84,20 +84,99 @@ def test_attribute_falls_back_to_alias_when_token_unknown() -> None:
     keys = [_key(3, token="stored-token", alias="seko-carol-1")]
     by_token, by_alias = us._key_index(keys)
     rows = [_day(("different-token", "seko-carol-1", _metrics(9, 1, 5, 4)))]
-    totals = us.attribute(rows, by_token, by_alias)
+    totals = us.attribute(rows, by_token, by_alias).users
     assert totals[3].total_tokens == 9
 
 
-def test_attribute_ignores_unknown_and_blank_keys() -> None:
+def test_attribute_keeps_unknown_out_of_users_bucket() -> None:
     keys = [_key(1, token="tok-1", alias="seko-alice-1")]
     by_token, by_alias = us._key_index(keys)
     rows = [
         _day(("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30))),
         _day(("ghost-token", "seko-ghost", _metrics(999, 9, 900, 99))),  # not ours
     ]
-    totals = us.attribute(rows, by_token, by_alias)
+    attribution = us.attribute(rows, by_token, by_alias)
+    totals = attribution.users
     assert totals[1].total_tokens == 100
     assert 999 not in {t.total_tokens for t in totals.values()}
+    assert attribution.unknown["seko-ghost"].total_tokens == 999
+
+
+def test_attribute_buckets_service_keys_by_full_alias() -> None:
+    rows = [
+        _day(
+            ("svc-token-1", "hermes-pk", _metrics(100, 2, 70, 30)),
+            ("svc-token-2", "hermes-personal", _metrics(50, 1, 35, 15)),
+        ),
+        _day(("svc-token-3", "hermes-pk", _metrics(25, 1, 20, 5))),
+    ]
+    attribution = us.attribute(rows, {}, {}, service_prefixes=["hermes"])
+
+    assert attribution.users == {}
+    assert attribution.services["hermes-pk"].total_tokens == 125
+    assert attribution.services["hermes-personal"].total_tokens == 50
+    assert attribution.unknown == {}
+
+
+def test_attribute_buckets_non_service_alias_as_unknown() -> None:
+    rows = [_day(("ghost-token", "random-key", _metrics(42, 3, 30, 12)))]
+    attribution = us.attribute(rows, {}, {}, service_prefixes=["hermes"])
+
+    assert attribution.services == {}
+    assert attribution.unknown["random-key"].total_tokens == 42
+    assert attribution.unknown_labels["random-key"] == "random-key"
+
+
+def test_attribute_unknown_empty_when_all_keys_are_user_or_service() -> None:
+    keys = [_key(1, token="tok-1", alias="seko-alice-1")]
+    by_token, by_alias = us._key_index(keys)
+    rows = [
+        _day(
+            ("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30)),
+            ("svc-token", "hermes-pk", _metrics(50, 1, 35, 15)),
+        )
+    ]
+
+    attribution = us.attribute(rows, by_token, by_alias, service_prefixes=["hermes"])
+
+    assert attribution.users[1].total_tokens == 100
+    assert attribution.services["hermes-pk"].total_tokens == 50
+    assert attribution.unknown == {}
+
+
+def test_attribute_matches_service_prefix() -> None:
+    rows = [_day(("svc-token", "hermes-anything", _metrics(42, 3, 30, 12)))]
+    attribution = us.attribute(rows, {}, {}, service_prefixes=["hermes"])
+
+    assert attribution.services["hermes-anything"].total_tokens == 42
+    assert attribution.unknown == {}
+
+
+def test_attribute_masks_token_label_when_alias_blank_or_missing() -> None:
+    rows = [
+        {
+            "date": "2026-07-08",
+            "breakdown": {
+                "api_keys": {
+                    "legacy-token-abcd": {
+                        "metrics": _metrics(10, 1, 6, 4),
+                        "metadata": {"key_alias": ""},
+                    },
+                    "legacy-token-wxyz": {
+                        "metrics": _metrics(20, 2, 12, 8),
+                        "metadata": {},
+                    },
+                }
+            },
+        }
+    ]
+
+    attribution = us.attribute(rows, {}, {}, service_prefixes=["hermes"])
+
+    assert attribution.unknown["legacy-token-abcd"].total_tokens == 10
+    assert attribution.unknown_labels["legacy-token-abcd"] == "…abcd"
+    assert attribution.unknown["legacy-token-wxyz"].total_tokens == 20
+    assert attribution.unknown_labels["legacy-token-wxyz"] == "…wxyz"
 
 
 async def test_collect_returns_per_user_summaries() -> None:
@@ -115,14 +194,15 @@ async def test_collect_returns_per_user_summaries() -> None:
         _key(1, token="tok-1", alias="seko-alice-1"),
         _key(2, token="tok-2", alias="seko-bob-1"),
     ]
-    summaries = await us.collect(Fake(), users, keys)
+    report = await us.collect(Fake(), users, keys, service_prefixes=["hermes"])
+    summaries = report.users
     assert summaries[1].total_tokens == 100
     assert summaries[1].username == "alice"
     assert summaries[1].available is True
     assert summaries[2].total_tokens == 50
     # A user with no matching keys still gets a (zeroed, available) summary.
     users.append(_user(3, "carol"))
-    summaries = await us.collect(Fake(), users, keys)
+    summaries = (await us.collect(Fake(), users, keys, service_prefixes=["hermes"])).users
     assert summaries[3].total_tokens == 0
     assert summaries[3].available is True
 
@@ -135,9 +215,11 @@ async def test_collect_degrades_gracefully_on_litellm_error() -> None:
             raise LiteLLMError("boom")
 
     users = [_user(1, "alice")]
-    summaries = await us.collect(Failing(), users, [])
-    assert summaries[1].available is False
-    assert summaries[1].total_tokens == 0
+    report = await us.collect(Failing(), users, [], service_prefixes=["hermes"])
+    assert report.users[1].available is False
+    assert report.users[1].total_tokens == 0
+    assert report.services == []
+    assert report.unknown == []
 
 
 def test_metrics_endpoint_exposes_series(client: TestClient) -> None:

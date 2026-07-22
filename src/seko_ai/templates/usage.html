@@ -20,6 +20,33 @@
     </div>
   </div>
 {% endmacro %}
+{% macro usage_table(title, first_column, rows, label_attr) %}
+  <div class="space-y-2">
+    <h2 class="text-lg font-medium">{{ title }} <span class="text-xs text-amber-400">(admin)</span></h2>
+    <table class="w-full text-sm">
+      <thead class="text-left text-slate-400">
+        <tr>
+          <th class="py-1">{{ first_column }}</th>
+          <th>Requests</th>
+          <th>Tokens</th>
+          <th>Prompt</th>
+          <th>Generate</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-800">
+        {% for row in rows %}
+          <tr>
+            <td class="py-1">{{ row|attr(label_attr) }}</td>
+            <td>{{ row.total_requests }}</td>
+            <td>{{ "{:,}".format(row.total_tokens) }}</td>
+            <td>{{ "{:,}".format(row.prompt_tokens) }}</td>
+            <td>{{ "{:,}".format(row.completion_tokens) }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
 {% block content %}
 <section class="space-y-6">
   <h1 class="text-2xl font-semibold">Usage</h1>
@@ -32,31 +59,11 @@
   {% endif %}
 
   {% if everyone is not none %}
-    <div class="space-y-2">
-      <h2 class="text-lg font-medium">All users <span class="text-xs text-amber-400">(admin)</span></h2>
-      <table class="w-full text-sm">
-        <thead class="text-left text-slate-400">
-          <tr>
-            <th class="py-1">User</th>
-            <th>Requests</th>
-            <th>Tokens</th>
-            <th>Prompt</th>
-            <th>Generate</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-800">
-          {% for s in everyone %}
-            <tr>
-              <td class="py-1">{{ s.username }}</td>
-              <td>{{ s.total_requests }}</td>
-              <td>{{ "{:,}".format(s.total_tokens) }}</td>
-              <td>{{ "{:,}".format(s.prompt_tokens) }}</td>
-              <td>{{ "{:,}".format(s.completion_tokens) }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
+    {{ usage_table("Users", "User", everyone, "username") }}
+    {{ usage_table("Services / Agents", "Alias", services, "label") }}
+    {% if unknown %}
+      {{ usage_table("Unknown", "Key", unknown, "label") }}
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}
