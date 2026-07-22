@@ -46,25 +46,22 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     static_dir = _PACKAGE_DIR / "static"
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
+    # Hosted workspaces, workspace backups, and the self-host kit are deprecated and no
+    # longer exposed on the website (their routers/services/models remain in the repo). See
+    # docs — only the direct-API key workflow is user-facing now.
     from seko_ai.routers import (
         auth,
-        backups,
         docs,
         health,
         keys,
         profile,
-        selfhost,
         usage,
-        workspaces,
     )
 
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(profile.router)
     app.include_router(keys.router)
-    app.include_router(workspaces.router)
-    app.include_router(backups.router)
-    app.include_router(selfhost.router)
     app.include_router(usage.router)
     app.include_router(docs.router)
 

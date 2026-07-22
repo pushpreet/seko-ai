@@ -10,18 +10,5 @@
       <dt class="text-slate-400">Role</dt><dd class="col-span-2">{{ "Admin" if user.is_admin else "User" }}</dd>
     </dl>
   </div>
-
-  <div class="space-y-4">
-    <div>
-      <h2 class="text-lg font-medium">SSH keys</h2>
-      <p class="text-sm text-slate-400">
-        Keys are installed into every hosted workspace you launch, so you can
-        <code>ssh dev@epyc.pushprh.com -p &lt;port&gt;</code>.
-      </p>
-    </div>
-    <div id="ssh-keys-panel">
-      {% include "_ssh_keys_panel.html" %}
-    </div>
-  </div>
 </section>
 {% endblock %}

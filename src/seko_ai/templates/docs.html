@@ -5,14 +5,10 @@
   <div>
     <h1 class="text-2xl font-semibold">Using the shared LLM</h1>
     <p class="mt-1 max-w-2xl text-sm text-slate-400">
-      Three ways to reach the backend model, all authenticated with a per-user key you mint on
-      the <a href="/keys" class="underline hover:text-sky-400">API Keys</a> page.
+      Reach the backend model over its OpenAI-compatible API, authenticated with a per-user
+      key you mint on the <a href="/keys" class="underline hover:text-sky-400">API Keys</a>
+      page.
     </p>
-    <div class="mt-3 flex flex-wrap gap-2 text-xs">
-      <a href="#direct-api" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">1 &middot; Direct API</a>
-      <a href="#local-workspaces" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">2 &middot; Local workspaces</a>
-      <a href="#remote-workspaces" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">3 &middot; Remote workspaces</a>
-    </div>
   </div>
 
   <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
@@ -33,10 +29,10 @@
     </dl>
   </div>
 
-  <!-- 1. Direct API -->
+  <!-- Direct API -->
   <div id="direct-api" class="space-y-4 scroll-mt-20">
     <div>
-      <h2 class="text-xl font-semibold">1. Direct API integration</h2>
+      <h2 class="text-xl font-semibold">Direct API integration</h2>
       <p class="mt-1 max-w-2xl text-sm text-slate-400">
         Point any OpenAI-compatible client or editor extension at the endpoint above. First
         mint a key on the <a href="/keys" class="underline hover:text-sky-400">API Keys</a>
@@ -94,125 +90,5 @@ print(resp.choices[0].message.content)</code></pre>
     </div>
   </div>
 
-  <!-- 2. Local workspaces -->
-  <div id="local-workspaces" class="space-y-4 scroll-mt-20">
-    <div>
-      <h2 class="text-xl font-semibold">2. Local workspaces (your own hardware)</h2>
-      <p class="mt-1 max-w-2xl text-sm text-slate-400">
-        Run the same hardened coding workspace image (<code>{{ workspace_image }}</code>) on
-        your own machine, pointed at the shared LLM. The
-        <a href="/selfhost" class="underline hover:text-sky-400">Self-host</a> page mints a key
-        and generates a personalized kit &mdash; a <code>.env</code>, a
-        <code>docker-compose.yml</code>, and an installer for your OS
-        (<code>install.sh</code> or <code>install.ps1</code>), shown once.
-      </p>
-    </div>
-    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
-      <h3 class="font-medium text-slate-200">Prerequisites</h3>
-      <ul class="mt-2 ml-4 list-disc space-y-1 text-slate-400">
-        <li><strong class="text-slate-300">SSH client</strong> &mdash; built into macOS, Linux,
-          and Windows 10+ (the <code>ssh</code> command). Used to log into the workspace.</li>
-        <li><strong class="text-slate-300">An SSH keypair.</strong> If you don't have one, run
-          <code class="text-sky-300">ssh-keygen -t ed25519</code>, then paste the contents of
-          <code>~/.ssh/id_ed25519.pub</code> on your
-          <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
-        <li><strong class="text-slate-300">Docker + Compose v2</strong> (Linux/macOS) or
-          <a href="https://docs.docker.com/desktop/install/windows-install/" class="underline hover:text-sky-400">Docker Desktop</a>
-          with the WSL2 backend (Windows).</li>
-      </ul>
-    </div>
-
-    <ol class="ml-4 list-decimal space-y-1 text-sm text-slate-300">
-      <li>On <a href="/selfhost" class="underline hover:text-sky-400">Self-host</a>, pick a harness and generate your kit.</li>
-      <li>Save the files into a folder, then run the installer for your OS (see below).</li>
-      <li>Connect: <code class="text-sky-300">ssh dev@localhost -p 2222</code></li>
-    </ol>
-
-    <div class="grid gap-3 sm:grid-cols-2">
-      <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-sm">
-        <h3 class="font-medium text-slate-200">Linux / macOS</h3>
-        <p class="mt-1 text-slate-400">
-          Needs Docker + Compose v2. In the folder run
-          <code class="text-sky-300">bash install.sh</code>.
-        </p>
-      </div>
-      <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-3 text-sm">
-        <h3 class="font-medium text-slate-200">Windows</h3>
-        <p class="mt-1 text-slate-400">
-          Install <a href="https://docs.docker.com/desktop/install/windows-install/" class="underline hover:text-sky-400">Docker Desktop</a>
-          (WSL2 backend). In PowerShell run
-          <code class="text-sky-300">powershell -ExecutionPolicy Bypass -File .\install.ps1</code>,
-          then connect with the built-in OpenSSH client:
-          <code class="text-sky-300">ssh dev@localhost -p 2222</code>. Prefer bash? Run
-          <code>install.sh</code> from WSL2 or Git Bash instead &mdash; both target the same
-          Docker Desktop engine.
-        </p>
-      </div>
-    </div>
-
-    <p class="text-sm text-slate-400">
-      Everything runs locally except the model calls, which go to
-      <code>{{ llm_base_url }}</code> with your key. You can also repoint
-      <code>LLM_BASE_URL</code> at a model running on your own host.
-    </p>
-  </div>
-
-  <!-- 3. Remote workspaces -->
-  <div id="remote-workspaces" class="space-y-4 scroll-mt-20">
-    <div>
-      <h2 class="text-xl font-semibold">3. Remote workspaces (hosted, over Tailscale)</h2>
-      <p class="mt-1 max-w-2xl text-sm text-slate-400">
-        Launch an isolated hosted workspace on the server and reach it by SSH over
-        <a href="https://tailscale.com/" class="underline hover:text-sky-400">Tailscale</a>.
-        You only need the Tailscale client installed once; after that it's plain
-        <code>ssh</code>, so VS Code Remote-SSH and <code>scp</code> work too.
-      </p>
-    </div>
-
-    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
-      <h3 class="font-medium text-slate-200">Prerequisites</h3>
-      <ul class="mt-2 ml-4 list-disc space-y-1 text-slate-400">
-        <li><strong class="text-slate-300">SSH client</strong> &mdash; built into macOS, Linux,
-          and Windows 10+ (the <code>ssh</code> command).</li>
-        <li><strong class="text-slate-300">An SSH keypair.</strong> If you don't have one, run
-          <code class="text-sky-300">ssh-keygen -t ed25519</code>, then paste the contents of
-          <code>~/.ssh/id_ed25519.pub</code> on your
-          <a href="/profile" class="underline hover:text-sky-400">profile</a>.</li>
-        <li><strong class="text-slate-300">Tailscale</strong> &mdash; installed once and signed
-          in via an admin invite (one-time setup below). No other ports or hosts are exposed.</li>
-      </ul>
-    </div>
-
-    <div class="rounded-lg border border-sky-900 bg-sky-950/30 p-3 text-sm text-sky-100">
-      <h3 class="font-medium">One-time Tailscale setup</h3>
-      <ol class="mt-1 ml-4 list-decimal space-y-1">
-        <li>Ask the admin to send you a Tailscale invite, then
-          <a href="https://tailscale.com/download" class="underline">install Tailscale</a> and
-          run <code>tailscale up</code> (sign in with the account you were invited as).</li>
-        <li>That's it &mdash; your access is scoped by policy to the workspace SSH ports on the
-          server and nothing else.</li>
-      </ol>
-    </div>
-
-    <ol class="ml-4 list-decimal space-y-1 text-sm text-slate-300">
-      <li>Launch a workspace on the <a href="/workspaces" class="underline hover:text-sky-400">Workspaces</a> page.</li>
-      <li>Copy its exact connect command from that page &mdash; it looks like:
-        <code class="text-sky-300">ssh dev@{{ workspace_ssh_host }} -p &lt;port&gt;</code>
-        (each workspace gets its own port).</li>
-      <li>To drop straight into the coding harness, append <code>-t pi</code> (or <code>-t omp</code>).</li>
-    </ol>
-
-    <div>
-      <h3 class="mb-1 font-medium">VS Code Remote-SSH</h3>
-      <p class="mb-1 text-sm text-slate-400">
-        Add a host block to <code>~/.ssh/config</code> (use the port shown for your workspace),
-        then "Connect to Host" from the Remote-SSH extension:
-      </p>
-      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>Host seko-workspace
-  HostName {{ workspace_ssh_host }}
-  Port &lt;port&gt;
-  User dev</code></pre>
-    </div>
-  </div>
 </section>
 {% endblock %}

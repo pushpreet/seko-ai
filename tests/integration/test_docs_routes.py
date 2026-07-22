@@ -22,13 +22,14 @@ def test_docs_requires_auth(client: TestClient) -> None:
     assert resp.status_code == 303
 
 
-def test_docs_renders_three_sections(client: TestClient) -> None:
+def test_docs_renders_direct_api(client: TestClient) -> None:
     _login(client, ["llm_users"])
     resp = client.get("/docs")
     assert resp.status_code == 200
-    assert "1. Direct API integration" in resp.text
-    assert "2. Local workspaces" in resp.text
-    assert "3. Remote workspaces" in resp.text
+    assert "Direct API integration" in resp.text
+    # The deprecated workspace/self-host sections are gone from the website.
+    assert "Local workspaces" not in resp.text
+    assert "Remote workspaces" not in resp.text
 
 
 def test_docs_includes_live_endpoint_values(client: TestClient) -> None:
@@ -37,16 +38,3 @@ def test_docs_includes_live_endpoint_values(client: TestClient) -> None:
     resp = client.get("/docs")
     assert settings.llm_public_url in resp.text
     assert settings.llm_model in resp.text
-    assert settings.workspace_ssh_host in resp.text
-
-
-def test_docs_lists_prerequisites(client: TestClient) -> None:
-    _login(client, ["llm_users"])
-    resp = client.get("/docs")
-    assert resp.status_code == 200
-    # Both the local and remote sections gain an upfront prerequisites list.
-    assert resp.text.count("Prerequisites") >= 2
-    # SSH keypair how-to (shared) plus the per-flow tools (Docker for local, Tailscale remote).
-    assert "ssh-keygen -t ed25519" in resp.text
-    assert "Docker + Compose v2" in resp.text
-    assert "Tailscale" in resp.text

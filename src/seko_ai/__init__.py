@@ -1,3 +1,3 @@
 """seko-ai — self-service control plane for a shared local LLM backend."""
 
-__version__ = "0.2.6"
+__version__ = "0.3.0"

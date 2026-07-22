@@ -1,9 +1,14 @@
 # seko-ai
 
-Self-service control plane for a shared local LLM backend (vLLM) and isolated agentic
-coding workspaces. Lets a small group of trusted users manage their LLM API key, launch
-hosted harness environments on the LLM host, or run the same portable harness on their own
-hardware — all behind Authelia SSO.
+Self-service control plane for a shared local LLM backend (vLLM). Lets a small group of
+trusted users manage their LLM API key and point their own harness/editor at the shared
+model — all behind Authelia SSO.
+
+> **Deprecation note (v0.3.0):** the hosted **Workspaces**, workspace **Backups**, and the
+> **self-host Docker kit** are no longer exposed on the website (their routes return 404).
+> There was no user demand — everyone uses the direct API route with their own harness. The
+> code (routers, services, models, migrations, templates) is retained in the repo for now,
+> just unwired from the app; re-mounting the routers in `app.py` brings them back.
 
 Designed to integrate with the [`psx-homelab`](../psx-homelab) GitOps setup (Ansible +
 Docker Compose, SOPS secrets, restic→NAS backups, Prometheus/Grafana, Caddy + Cloudflare
@@ -15,10 +20,9 @@ Tunnel).
 - **Auth**: Authelia OIDC; access gated by the `llm_users` LLDAP group, admins via
   `homelab_admins`.
 - **LLM keys**: per-user virtual keys via a **LiteLLM proxy** in front of vLLM.
-- **Workspaces**: hardened per-user containers on `epyc`, orchestrated over the Docker API
-  (SSH-tunneled), reached by native SSH over Tailscale.
-- **Data**: per-user home volumes are envelope-encrypted (admin-held keys) and backed up
-  with restic (nightly + on-demand + on-terminate).
+- **Deprecated (code retained, hidden from the UI)**: hosted **Workspaces** (hardened
+  per-user containers on `epyc` over Docker-over-SSH), restic **Backups**, and the
+  **self-host kit**. See the deprecation note above.
 
 See the implementation plan for the full design.
 

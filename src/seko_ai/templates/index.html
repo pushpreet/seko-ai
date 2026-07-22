@@ -5,19 +5,15 @@
   <div>
     <h1 class="text-2xl font-semibold">Your local LLM, self-service.</h1>
     <p class="mt-2 max-w-2xl text-slate-400">
-      Manage your LLM API key, spin up isolated agentic coding workspaces, or run the same
-      harness on your own hardware &mdash; all backed by the shared vLLM server.
+      Mint a personal API key for the shared vLLM server and point any OpenAI-compatible
+      client or harness at it. See the docs for setup examples.
     </p>
   </div>
   {% if user %}
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <a href="/keys" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
         <h2 class="font-medium">API Keys</h2>
         <p class="mt-1 text-sm text-slate-400">Generate and rotate your LLM key.</p>
-      </a>
-      <a href="/workspaces" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
-        <h2 class="font-medium">Workspaces</h2>
-        <p class="mt-1 text-sm text-slate-400">Launch and manage hosted environments.</p>
       </a>
       <a href="/usage" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
         <h2 class="font-medium">Usage</h2>
@@ -25,7 +21,7 @@
       </a>
       <a href="/docs" class="rounded-lg border border-slate-800 bg-slate-900/50 p-4 hover:border-sky-600">
         <h2 class="font-medium">Docs</h2>
-        <p class="mt-1 text-sm text-slate-400">Three ways to use the LLM: API, local, remote.</p>
+        <p class="mt-1 text-sm text-slate-400">Connect your client to the shared LLM API.</p>
       </a>
     </div>
   {% else %}

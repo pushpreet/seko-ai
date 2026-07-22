@@ -1,4 +1,4 @@
-"""User-facing docs: the three ways to use the shared LLM (direct API, local, remote)."""
+"""User-facing docs: how to reach the shared LLM via the direct (OpenAI-compatible) API."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def docs_page(
     user: User = Depends(get_current_db_user),  # noqa: B008
     settings: Settings = Depends(get_app_settings),  # noqa: B008
 ) -> HTMLResponse:
-    """Explain how to use the backend LLM three ways, with live endpoint/model values."""
+    """Explain how to reach the backend LLM via the direct API, with live endpoint/model."""
     return _templates().TemplateResponse(
         request,
         "docs.html",
@@ -34,7 +34,5 @@ def docs_page(
             "user": request.session.get("user"),
             "llm_base_url": settings.llm_public_url,
             "llm_model": settings.llm_model,
-            "workspace_image": settings.workspace_image,
-            "workspace_ssh_host": settings.workspace_ssh_host,
         },
     )

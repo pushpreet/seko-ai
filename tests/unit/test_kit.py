@@ -1,17 +1,11 @@
-"""Tests for the self-host kit generator + routes."""
+"""Tests for the self-host kit generator (service-level; the selfhost routes are deprecated)."""
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
-from typing import Any
-
 import pytest
-from fastapi.testclient import TestClient
 
 from seko_ai.config import Settings
-from seko_ai.deps import get_litellm_client
 from seko_ai.services import kit as kit_service
-from tests.fakes import FakeLiteLLMClient
 
 
 def test_build_env_contains_key_and_endpoint() -> None:
@@ -110,64 +104,3 @@ def test_build_kit_bundles_all_files(default_settings: Settings) -> None:
 @pytest.fixture
 def default_settings() -> Settings:
     return Settings(master_key="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=")
-
-
-# --- Route tests ---
-
-
-def _login(client: TestClient) -> None:
-    provider = client.app.state.oauth.authelia  # type: ignore[attr-defined]
-
-    async def fake_token(request: Any) -> dict[str, Any]:
-        return {"userinfo": {"sub": "u-sh", "preferred_username": "alice", "groups": ["llm_users"]}}
-
-    provider.authorize_access_token = fake_token
-    client.get("/auth/callback?code=abc", follow_redirects=False)
-
-
-@pytest.fixture
-def with_llm(client: TestClient) -> None:
-    async def override() -> AsyncIterator[FakeLiteLLMClient]:
-        yield FakeLiteLLMClient()
-
-    client.app.dependency_overrides[get_litellm_client] = override  # type: ignore[attr-defined]
-
-
-def test_selfhost_page_requires_auth(client: TestClient) -> None:
-    resp = client.get("/selfhost", headers={"accept": "text/html"}, follow_redirects=False)
-    assert resp.status_code == 303
-
-
-def test_generate_kit_requires_ssh_key(client: TestClient, with_llm: None) -> None:
-    _login(client)
-    resp = client.post("/selfhost/kit")
-    assert resp.status_code == 400
-    assert "SSH public key" in resp.text
-
-
-def test_generate_kit_renders_files(client: TestClient, with_llm: None) -> None:
-    from tests.conftest import VALID_SSH_KEY
-
-    _login(client)
-    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
-    resp = client.post("/selfhost/kit")
-    assert resp.status_code == 200
-    assert "docker-compose.yml" in resp.text
-    assert "install.sh" in resp.text
-    assert "install.ps1" in resp.text  # Windows installer offered alongside bash
-    assert "sk-fake-0001" in resp.text  # personalized key embedded once
-    assert "AAAAC3NzaC1lZDI1NTE5" in resp.text  # their pubkey blob
-    assert "-t pi" in resp.text  # default harness launch hint
-    assert "copyCode(this)" in resp.text  # per-file copy buttons
-    assert 'data-os-tab="windows"' in resp.text  # OS selector present
-
-
-def test_generate_kit_honors_harness(client: TestClient, with_llm: None) -> None:
-    from tests.conftest import VALID_SSH_KEY
-
-    _login(client)
-    client.post("/profile/ssh-keys", data={"title": "laptop", "public_key": VALID_SSH_KEY})
-    resp = client.post("/selfhost/kit", data={"harness": "oh-my-pi"})
-    assert resp.status_code == 200
-    assert "-t omp" in resp.text
-    assert "Drive the oh-my-pi harness" in resp.text
