@@ -54,7 +54,7 @@ async def usage_page(
     if user.is_admin:
         context.update(
             {
-                "everyone": [report.users[u.id] for u in users],
+                "everyone": usage_service.order_user_summaries(report.users[u.id] for u in users),
                 "services": report.services,
                 "unknown": report.unknown,
             }

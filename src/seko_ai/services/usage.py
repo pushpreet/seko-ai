@@ -135,7 +135,15 @@ def _sorted_labeled(
         _labeled_usage((labels or {}).get(identifier, identifier), total)
         for identifier, total in totals.items()
     ]
-    return sorted(rows, key=lambda row: (-row.total_tokens, row.label))
+    return sorted(rows, key=lambda row: (-row.completion_tokens, -row.total_tokens, row.label))
+
+
+def order_user_summaries(summaries: Iterable[UsageSummary]) -> list[UsageSummary]:
+    """Order user rows for the dashboard by generated (completion) tokens, descending."""
+    return sorted(
+        summaries,
+        key=lambda s: (-s.completion_tokens, -s.total_tokens, s.username),
+    )
 
 
 def attribute(

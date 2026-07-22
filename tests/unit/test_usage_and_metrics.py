@@ -222,6 +222,41 @@ async def test_collect_degrades_gracefully_on_litellm_error() -> None:
     assert report.unknown == []
 
 
+def test_order_user_summaries_by_generated_tokens_desc() -> None:
+    # alice has more total tokens but fewer generated; bob should still sort first.
+    alice = us.UsageSummary(
+        username="alice",
+        total_tokens=1000,
+        total_requests=1,
+        prompt_tokens=990,
+        completion_tokens=10,
+    )
+    bob = us.UsageSummary(
+        username="bob",
+        total_tokens=100,
+        total_requests=1,
+        prompt_tokens=10,
+        completion_tokens=90,
+    )
+    ordered = us.order_user_summaries([alice, bob])
+    assert [s.username for s in ordered] == ["bob", "alice"]
+
+
+async def test_collect_orders_service_rows_by_generated_tokens_desc() -> None:
+    class Fake:
+        async def daily_activity(self, *, start_date: str, end_date: str, page_size: int = 1000):
+            # hermes-pk has more total tokens; hermes-personal has more *generated* tokens.
+            return [
+                _day(
+                    ("t1", "hermes-pk", _metrics(1000, 1, 990, 10)),
+                    ("t2", "hermes-personal", _metrics(100, 1, 10, 90)),
+                )
+            ]
+
+    report = await us.collect(Fake(), [], [], service_prefixes=["hermes"])
+    assert [row.label for row in report.services] == ["hermes-personal", "hermes-pk"]
+
+
 def test_metrics_endpoint_exposes_series(client: TestClient) -> None:
     body = client.get("/metrics").text
     for name in [
