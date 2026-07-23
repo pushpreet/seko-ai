@@ -222,8 +222,8 @@ async def test_collect_degrades_gracefully_on_litellm_error() -> None:
     assert report.unknown == []
 
 
-def test_order_user_summaries_by_generated_tokens_desc() -> None:
-    # alice has more total tokens but fewer generated; bob should still sort first.
+def test_order_user_summaries_by_total_tokens_desc() -> None:
+    # alice has more total tokens but fewer generated; alice should sort first.
     alice = us.UsageSummary(
         username="alice",
         total_tokens=1000,
@@ -238,11 +238,40 @@ def test_order_user_summaries_by_generated_tokens_desc() -> None:
         prompt_tokens=10,
         completion_tokens=90,
     )
-    ordered = us.order_user_summaries([alice, bob])
-    assert [s.username for s in ordered] == ["bob", "alice"]
+    # Pass in ascending-total order to prove the function reorders by total tokens desc.
+    ordered = us.order_user_summaries([bob, alice])
+    assert [s.username for s in ordered] == ["alice", "bob"]
 
 
-async def test_collect_orders_service_rows_by_generated_tokens_desc() -> None:
+def test_order_user_summaries_tiebreaks_on_completion_then_name() -> None:
+    # Equal totals -> higher completion first; equal completion -> alphabetical username.
+    lo_gen = us.UsageSummary(
+        username="zoe",
+        total_tokens=100,
+        total_requests=1,
+        prompt_tokens=90,
+        completion_tokens=10,
+    )
+    hi_gen = us.UsageSummary(
+        username="amy",
+        total_tokens=100,
+        total_requests=1,
+        prompt_tokens=40,
+        completion_tokens=60,
+    )
+    tie = us.UsageSummary(
+        username="bob",
+        total_tokens=100,
+        total_requests=1,
+        prompt_tokens=40,
+        completion_tokens=60,
+    )
+    ordered = us.order_user_summaries([lo_gen, tie, hi_gen])
+    # hi_gen and tie share total+completion -> username order (amy before bob); zoe last.
+    assert [s.username for s in ordered] == ["amy", "bob", "zoe"]
+
+
+async def test_collect_orders_service_rows_by_total_tokens_desc() -> None:
     class Fake:
         async def daily_activity(self, *, start_date: str, end_date: str, page_size: int = 1000):
             # hermes-pk has more total tokens; hermes-personal has more *generated* tokens.
@@ -254,7 +283,8 @@ async def test_collect_orders_service_rows_by_generated_tokens_desc() -> None:
             ]
 
     report = await us.collect(Fake(), [], [], service_prefixes=["hermes"])
-    assert [row.label for row in report.services] == ["hermes-personal", "hermes-pk"]
+    # Sorted by total tokens descending: hermes-pk (1000) before hermes-personal (100).
+    assert [row.label for row in report.services] == ["hermes-pk", "hermes-personal"]
 
 
 def test_metrics_endpoint_exposes_series(client: TestClient) -> None:
