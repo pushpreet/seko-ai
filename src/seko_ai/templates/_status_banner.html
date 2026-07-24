@@ -1,0 +1,32 @@
+{#
+  Live status pill. Embedded next to the logo in base.html (hx polling) and returned by
+  GET /status/banner. The hx-* attributes are repeated on the root so polling continues
+  after each outerHTML swap. Compact pill — the nav already has a "Status" link.
+#}
+<div id="status-banner"
+     class="flex items-center"
+     hx-get="/status/banner"
+     hx-trigger="load, every 30s"
+     hx-swap="outerHTML">
+  {% if state.maintenance_active %}
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-amber-600/25 px-2.5 py-0.5 text-xs font-medium text-amber-200"
+          title="Scheduled maintenance in progress{% if state.maintenance_message %} — {{ state.maintenance_message }}{% endif %}">
+      <span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span> Maintenance
+    </span>
+  {% elif state.current_status == 'down' %}
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-red-600/30 px-2.5 py-0.5 text-xs font-medium text-red-200"
+          title="The LLM API is currently unavailable — API-key requests will fail until it's back.">
+      <span class="h-1.5 w-1.5 rounded-full bg-red-400"></span> LLM down
+    </span>
+  {% elif state.current_status == 'up' %}
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-600/20 px-2.5 py-0.5 text-xs font-medium text-emerald-300"
+          title="The LLM API is up and serving requests.">
+      <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> Operational
+    </span>
+  {% else %}
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-600/30 px-2.5 py-0.5 text-xs font-medium text-slate-300"
+          title="LLM API status is being determined.">
+      <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span> Checking…
+    </span>
+  {% endif %}
+</div>

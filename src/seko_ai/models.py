@@ -159,3 +159,61 @@ class Backup(TimestampMixin, Base):
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     workspace: Mapped[Workspace] = relationship(back_populates="backups")
+
+
+class ServiceStatus(enum.StrEnum):
+    """Availability of the LLM API-key path (LiteLLM -> vLLM)."""
+
+    UP = "up"
+    DOWN = "down"
+    UNKNOWN = "unknown"
+
+
+class ServiceState(TimestampMixin, Base):
+    """Singleton (id=1) tracking current LLM availability + the maintenance window.
+
+    Written by the ``check-status`` management command (probe + hysteresis) and by the admin
+    maintenance toggle; read by the status page/banner. Kept as one row for simplicity.
+    """
+
+    __tablename__ = "service_state"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    current_status: Mapped[ServiceStatus] = mapped_column(
+        Enum(ServiceStatus, native_enum=False, length=16),
+        default=ServiceStatus.UNKNOWN,
+    )
+    # When the current status was entered (drives "down since …").
+    since: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    last_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Rolling count of consecutive failed probes (hysteresis across timer runs).
+    consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Manual maintenance window: while active, up/down emails are suppressed and the banner
+    # shows a "scheduled maintenance" message instead of an outage.
+    maintenance_active: Mapped[bool] = mapped_column(default=False)
+    maintenance_started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    maintenance_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class StatusEvent(TimestampMixin, Base):
+    """A recorded up<->down (or maintenance) transition, for the recent-incidents list."""
+
+    __tablename__ = "status_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    from_status: Mapped[ServiceStatus] = mapped_column(
+        Enum(ServiceStatus, native_enum=False, length=16)
+    )
+    to_status: Mapped[ServiceStatus] = mapped_column(
+        Enum(ServiceStatus, native_enum=False, length=16)
+    )
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow, index=True)
+    # True if the transition happened during a maintenance window (email suppressed).
+    during_maintenance: Mapped[bool] = mapped_column(default=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)

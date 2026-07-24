@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% block title %}seko-ai &middot; status{% endblock %}
+{% block content %}
+<section class="space-y-8">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-semibold">Service status</h1>
+    {% if state.maintenance_active %}
+      <span class="rounded-full bg-amber-600/25 px-3 py-1 text-sm font-medium text-amber-200">Maintenance</span>
+    {% elif state.current_status == 'up' %}
+      <span class="rounded-full bg-emerald-600/25 px-3 py-1 text-sm font-medium text-emerald-300">Operational</span>
+    {% elif state.current_status == 'down' %}
+      <span class="rounded-full bg-red-700/30 px-3 py-1 text-sm font-medium text-red-200">Down</span>
+    {% else %}
+      <span class="rounded-full bg-slate-700/40 px-3 py-1 text-sm font-medium text-slate-300">Unknown</span>
+    {% endif %}
+  </div>
+
+  <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-5">
+    {% if state.maintenance_active %}
+      <p class="text-amber-200">🛠 Scheduled maintenance is in progress. The LLM API may be
+        intermittently unavailable; outage emails are paused until it ends.</p>
+      {% if state.maintenance_message %}
+        <p class="mt-2 text-sm text-slate-300">Note: {{ state.maintenance_message }}</p>
+      {% endif %}
+      {% if state.maintenance_started_at %}
+        <p class="mt-1 text-xs text-slate-500">Started {{ state.maintenance_started_at.strftime('%Y-%m-%d %H:%M UTC') }}</p>
+      {% endif %}
+    {% elif state.current_status == 'up' %}
+      <p class="text-emerald-300">✓ The LLM API is up and serving requests.</p>
+    {% elif state.current_status == 'down' %}
+      <p class="text-red-200">⚠ The LLM API is currently unavailable — API-key requests will fail.</p>
+    {% else %}
+      <p class="text-slate-300">Status has not been determined yet.</p>
+    {% endif %}
+    <p class="mt-3 text-sm text-slate-400">
+      Since {{ state.since.strftime('%Y-%m-%d %H:%M UTC') }}
+      {% if state.last_checked_at %}
+        · last checked {{ state.last_checked_at.strftime('%Y-%m-%d %H:%M UTC') }}
+      {% endif %}
+    </p>
+  </div>
+
+  {% if is_admin %}
+  <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-5">
+    <h2 class="font-medium">Maintenance window <span class="text-xs font-normal text-slate-500">(admin)</span></h2>
+    <p class="mt-1 text-sm text-slate-400">
+      While active, up/down emails are paused and users see a maintenance banner. Toggle this
+      around any intentional LLM outage (e.g. redeploying the <code>llm</code> stack).
+    </p>
+    {% if state.maintenance_active %}
+      <form method="post" action="/status/maintenance/end" class="mt-4">
+        <button class="rounded bg-emerald-600 px-4 py-2 text-sm font-medium hover:bg-emerald-500">
+          End maintenance
+        </button>
+      </form>
+    {% else %}
+      <form method="post" action="/status/maintenance/start" class="mt-4 flex flex-wrap items-center gap-2">
+        <input type="text" name="message" placeholder="Optional message (e.g. GPU driver update)"
+               class="w-72 rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm" />
+        <button class="rounded bg-amber-600 px-4 py-2 text-sm font-medium hover:bg-amber-500">
+          Start maintenance
+        </button>
+      </form>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div>
+    <h2 class="font-medium">Recent events</h2>
+    {% if events %}
+      <table class="mt-3 w-full text-left text-sm">
+        <thead class="text-slate-500">
+          <tr>
+            <th class="py-1 pr-4 font-normal">When (UTC)</th>
+            <th class="py-1 pr-4 font-normal">Change</th>
+            <th class="py-1 font-normal">Note</th>
+          </tr>
+        </thead>
+        <tbody class="text-slate-300">
+          {% for e in events %}
+          <tr class="border-t border-slate-800/60">
+            <td class="py-1 pr-4">{{ e.at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td class="py-1 pr-4">
+              {{ e.from_status }} → {{ e.to_status }}
+              {% if e.during_maintenance %}<span class="text-amber-400/80">(maint)</span>{% endif %}
+            </td>
+            <td class="py-1 text-slate-500">{{ e.note or '' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="mt-2 text-sm text-slate-500">No transitions recorded yet.</p>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

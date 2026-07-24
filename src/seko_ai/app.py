@@ -55,6 +55,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         health,
         keys,
         profile,
+        status,
         usage,
     )
 
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(profile.router)
     app.include_router(keys.router)
     app.include_router(usage.router)
+    app.include_router(status.router)
     app.include_router(docs.router)
 
     @app.exception_handler(HTTPException)
