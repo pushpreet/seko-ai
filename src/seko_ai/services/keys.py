@@ -82,7 +82,7 @@ async def create_key_for_user(
     result = await client.generate_key(
         user_id=litellm_user_id(user),
         key_alias=alias,
-        models=[settings.llm_model],
+        models=[settings.llm_model, settings.llm_embedding_model],
         metadata={"seko_user_id": user.id, "seko_username": user.username},
     )
     plaintext = result.get("key")

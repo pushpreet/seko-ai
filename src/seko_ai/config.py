@@ -52,6 +52,16 @@ class Settings(BaseSettings):
     # Public endpoint handed to users/workspaces for their key.
     llm_public_url: str = "https://llm.pushprh.com/v1"
     llm_model: str = "qwen3.6-27b"
+    # Local embeddings model (stacks/vllm-embed, served-model-name) exposed through the same
+    # LiteLLM gateway. Minted user keys include it so a single key covers chat + embeddings
+    # (e.g. Zoo Code codebase indexing). `dimension` is the native vector size clients pin.
+    llm_embedding_model: str = "embed"
+    llm_embedding_dimension: int = 2560
+    # Shared Qdrant vector DB (stacks/qdrant) that backs codebase indexing. URL is handed to
+    # users on the docs page; the API key is a shared homelab secret (all llm_users share it,
+    # so collections are mutually visible) surfaced only on the SSO-gated docs page.
+    qdrant_url: str = "http://10.37.20.50:6333"
+    qdrant_api_key: str = ""
 
     # --- Workspace orchestration (Docker-over-SSH to epyc) ---
     docker_host: str = "ssh://pushprh@10.37.20.50"
@@ -72,7 +82,40 @@ class Settings(BaseSettings):
     restic_repository: str = ""
     restic_password: str = ""
 
+    # --- Service status monitoring + user notifications ---
+    # The `check-status` management command probes the API-key path (LiteLLM -> vLLM) and,
+    # on a real up<->down transition, emails all seko users via Resend. See the status
+    # router for the banner/page and the admin maintenance toggle.
+    #
+    # Probe mode:
+    #   "litellm_health" (default) -> GET {litellm_base_url}/health with the master key;
+    #       "up" iff HTTP 200 and at least one healthy endpoint (a served model). This is the
+    #       truest "a user's API key can get completions" signal.
+    #   "http" -> GET status_probe_url (or {litellm_base_url}/health/liveliness) expecting 200.
+    status_probe_mode: str = "litellm_health"
+    status_probe_url: str = ""
+    status_probe_timeout: float = 10.0
+    # Consecutive failed probes before declaring DOWN (hysteresis; one success -> UP). At the
+    # ~60s timer cadence this is ~N minutes of sustained failure, so brief blips don't email.
+    status_fail_threshold: int = 3
+
+    # Resend (HTTPS API) for the down/up + maintenance emails. Reuses the homelab Resend
+    # account; `alert_email_from` must be on a Resend-verified domain (pushprh.com).
+    resend_api_key: str = ""
+    alert_email_from: str = "alerts@pushprh.com"
+    # Send a single announcement email on maintenance start and an "all clear" on end.
+    status_notify_on_maintenance: bool = True
+    # Auto-clear a forgotten maintenance window after this many hours (0 = never).
+    maintenance_max_hours: float = 12.0
+
     debug: bool = Field(default=False)
+
+    @property
+    def effective_status_probe_url(self) -> str:
+        """Resolve the URL used by the ``http`` probe mode (falls back to liveliness)."""
+        if self.status_probe_url:
+            return self.status_probe_url
+        return f"{self.litellm_base_url.rstrip('/')}/health/liveliness"
 
     @property
     def service_usage_aliases(self) -> list[str]:

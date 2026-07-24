@@ -42,7 +42,7 @@ async def test_create_key_persists_and_returns_plaintext(
     assert plaintext.startswith("sk-fake-")
     assert api_key.masked_key.endswith(plaintext[-4:])
     assert api_key.active is True
-    assert client.generated[0]["models"] == [settings.llm_model]
+    assert client.generated[0]["models"] == [settings.llm_model, settings.llm_embedding_model]
     assert ks.list_user_keys(db_session, user.id) == [api_key]
 
 

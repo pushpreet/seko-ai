@@ -34,5 +34,9 @@ def docs_page(
             "user": request.session.get("user"),
             "llm_base_url": settings.llm_public_url,
             "llm_model": settings.llm_model,
+            "embedding_model": settings.llm_embedding_model,
+            "embedding_dimension": settings.llm_embedding_dimension,
+            "qdrant_url": settings.qdrant_url,
+            "qdrant_api_key": settings.qdrant_api_key,
         },
     )

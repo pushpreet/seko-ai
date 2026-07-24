@@ -38,3 +38,13 @@ def test_docs_includes_live_endpoint_values(client: TestClient) -> None:
     resp = client.get("/docs")
     assert settings.llm_public_url in resp.text
     assert settings.llm_model in resp.text
+
+
+def test_docs_includes_codebase_indexing(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    settings = client.app.state.settings  # type: ignore[attr-defined]
+    resp = client.get("/docs")
+    assert "Codebase indexing" in resp.text
+    assert settings.llm_embedding_model in resp.text
+    assert str(settings.llm_embedding_dimension) in resp.text
+    assert settings.qdrant_url in resp.text
