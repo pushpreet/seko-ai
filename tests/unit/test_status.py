@@ -200,6 +200,16 @@ def test_recipient_emails_dedupes_and_skips_null(db_session: Session) -> None:
     assert notifications.recipient_emails(db_session) == ["a@example.com"]
 
 
+def test_recipient_emails_admins_only(db_session: Session) -> None:
+    global _UID
+    _UID += 1
+    db_session.add(User(subject=f"s-{_UID}", username="admin", email="admin@example.com", is_admin=True))
+    _add_user(db_session, "user@example.com")
+    db_session.flush()
+    s = Settings(master_key="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=", status_alert_admins_only=True)
+    assert notifications.recipient_emails(db_session, s) == ["admin@example.com"]
+
+
 def test_send_email_disabled_without_key(db_session: Session) -> None:
     s = Settings(master_key="MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=", resend_api_key="")
     assert notifications.send_email(s, to=["a@x"], subject="s", text="t") == 0

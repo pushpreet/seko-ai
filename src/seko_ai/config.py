@@ -103,6 +103,10 @@ class Settings(BaseSettings):
     # account; `alert_email_from` must be on a Resend-verified domain (pushprh.com).
     resend_api_key: str = ""
     alert_email_from: str = "alerts@pushprh.com"
+    # Restrict the down/up + maintenance emails to admin users only (leaving the banner and
+    # status page unchanged for everyone). Use this to stop notifying all seko users while
+    # availability is flaky; set back to false to resume emailing every user.
+    status_alert_admins_only: bool = False
     # Send a single announcement email on maintenance start and an "all clear" on end.
     status_notify_on_maintenance: bool = True
     # Auto-clear a forgotten maintenance window after this many hours (0 = never).

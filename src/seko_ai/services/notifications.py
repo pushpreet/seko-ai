@@ -23,9 +23,17 @@ log = get_logger("seko_ai.notifications")
 RESEND_ENDPOINT = "https://api.resend.com/emails"
 
 
-def recipient_emails(session: Session) -> list[str]:
-    """Return the distinct, non-empty emails of all known seko users."""
-    rows = session.execute(select(User.email).where(User.email.is_not(None))).scalars().all()
+def recipient_emails(session: Session, settings: Settings | None = None) -> list[str]:
+    """Return the distinct, non-empty emails of seko users to notify.
+
+    Normally every known user; if ``settings.status_alert_admins_only`` is set, only admin
+    users (so intentional/flaky periods don't spam everyone — the banner/status page still
+    inform all users).
+    """
+    stmt = select(User.email).where(User.email.is_not(None))
+    if settings is not None and settings.status_alert_admins_only:
+        stmt = stmt.where(User.is_admin.is_(True))
+    rows = session.execute(stmt).scalars().all()
     seen: dict[str, None] = {}
     for email in rows:
         addr = (email or "").strip()
@@ -99,7 +107,7 @@ def notify_down(session: Session, settings: Settings, *, detail: str | None = No
     )
     return send_email(
         settings,
-        to=recipient_emails(session),
+        to=recipient_emails(session, settings),
         subject="[seko] LLM API is DOWN",
         text=body,
     )
@@ -113,7 +121,7 @@ def notify_restored(session: Session, settings: Settings) -> int:
     )
     return send_email(
         settings,
-        to=recipient_emails(session),
+        to=recipient_emails(session, settings),
         subject="[seko] LLM API is back UP",
         text=body,
     )
@@ -132,7 +140,7 @@ def notify_maintenance_start(
     )
     return send_email(
         settings,
-        to=recipient_emails(session),
+        to=recipient_emails(session, settings),
         subject="[seko] Planned LLM maintenance started",
         text=body,
     )
@@ -147,7 +155,7 @@ def notify_maintenance_end(session: Session, settings: Settings) -> int:
     )
     return send_email(
         settings,
-        to=recipient_emails(session),
+        to=recipient_emails(session, settings),
         subject="[seko] LLM maintenance complete",
         text=body,
     )
