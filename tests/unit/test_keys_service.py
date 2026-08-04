@@ -42,7 +42,11 @@ async def test_create_key_persists_and_returns_plaintext(
     assert plaintext.startswith("sk-fake-")
     assert api_key.masked_key.endswith(plaintext[-4:])
     assert api_key.active is True
-    assert client.generated[0]["models"] == [settings.llm_model, settings.llm_embedding_model]
+    # No model allowlist is sent: LiteLLM resolves an absent/empty `models` to ALL proxy
+    # models, so keys automatically gain new (incl. experimental) models with no re-issuing.
+    # Guard against a regression to a pinned list, and against `["*"]` — the wildcard passes
+    # request auth but breaks GET /v1/models, which drives the Open WebUI model dropdown.
+    assert client.generated[0]["models"] in (None, [])
     assert ks.list_user_keys(db_session, user.id) == [api_key]
 
 

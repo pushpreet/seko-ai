@@ -82,7 +82,14 @@ async def create_key_for_user(
     result = await client.generate_key(
         user_id=litellm_user_id(user),
         key_alias=alias,
-        models=[settings.llm_model, settings.llm_embedding_model],
+        # NOTE: deliberately no `models=` allowlist. LiteLLM's get_complete_model_list()
+        # resolves key models -> team models -> ALL proxy models, so an empty/absent list
+        # means "every model on the proxy", including ones added later at runtime. That is
+        # what we want: new/experimental models on the homelab proxy become usable with no
+        # key surgery and no re-issuing. (This proxy serves a handful of trusted friends;
+        # per-key model scoping bought nothing but maintenance.)
+        # Do NOT "fix" this to models=["*"] — the wildcard passes request auth but breaks
+        # GET /v1/models, which is what drives the Open WebUI model dropdown.
         metadata={"seko_user_id": user.id, "seko_username": user.username},
     )
     plaintext = result.get("key")
