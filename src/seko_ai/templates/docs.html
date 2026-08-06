@@ -95,16 +95,16 @@ print(resp.choices[0].message.content)</code></pre>
     <div>
       <h2 class="text-xl font-semibold">Codebase indexing (Zoo Code)</h2>
       <p class="mt-1 max-w-2xl text-sm text-slate-400">
-        The homelab also serves a local <strong>embeddings</strong> model plus a shared
-        <strong>Qdrant</strong> vector database, so editor extensions can do semantic
-        &ldquo;find the code that does X&rdquo; retrieval over your whole repo. Your
-        <a href="/keys" class="underline hover:text-sky-400">seko key</a> already works for
-        embeddings &mdash; no separate key needed.
+        The homelab serves a local <strong>embeddings</strong> model so editor extensions can
+        do semantic &ldquo;find the code that does X&rdquo; retrieval over your whole repo.
+        Your <a href="/keys" class="underline hover:text-sky-400">seko key</a> already works
+        for embeddings &mdash; no separate key needed. The <strong>vector database</strong>
+        that stores the index runs on <strong>your own machine</strong>.
       </p>
     </div>
 
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
-      <h3 class="font-medium text-slate-200">Embeddings &amp; Qdrant at a glance</h3>
+      <h3 class="font-medium text-slate-200">Embeddings at a glance</h3>
       <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[10rem_1fr]">
         <dt class="text-slate-400">Base URL</dt>
         <dd class="flex flex-wrap items-center gap-2">
@@ -118,27 +118,31 @@ print(resp.choices[0].message.content)</code></pre>
         </dd>
         <dt class="text-slate-400">Dimension</dt>
         <dd><code class="select-all text-sky-300">{{ embedding_dimension }}</code></dd>
-        <dt class="text-slate-400">Qdrant URL</dt>
-        <dd class="flex flex-wrap items-center gap-2">
-          <code class="select-all text-sky-300">{{ qdrant_url }}</code>
-          <button class="rounded bg-slate-800 px-2 py-0.5 text-xs hover:bg-slate-700" type="button" data-copy="{{ qdrant_url }}" onclick="copyText(this)">Copy</button>
-        </dd>
-        {% if qdrant_api_key %}
-        <dt class="text-slate-400">Qdrant API key</dt>
-        <dd class="flex flex-wrap items-center gap-2">
-          <code class="select-all text-sky-300">{{ qdrant_api_key }}</code>
-          <button class="rounded bg-slate-800 px-2 py-0.5 text-xs hover:bg-slate-700" type="button" data-copy="{{ qdrant_api_key }}" onclick="copyText(this)">Copy</button>
-        </dd>
-        {% endif %}
       </dl>
-      <p class="mt-3 text-xs text-slate-500">
-        Qdrant is shared across all users &mdash; collections are named per project but are
-        mutually visible, so don&rsquo;t index anything you wouldn&rsquo;t share.
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">Step 1 &mdash; run Qdrant on your own machine</h3>
+      <p class="mb-1 text-sm text-slate-400">
+        Zoo Code stores the index in a <a href="https://qdrant.tech/" class="underline hover:text-sky-400" target="_blank" rel="noopener">Qdrant</a>
+        vector database. Install and start it locally by following the
+        <a href="https://qdrant.tech/documentation/installation/" class="underline hover:text-sky-400" target="_blank" rel="noopener">official Qdrant installation guide</a>
+        &mdash; it covers Docker, Windows, Linux and macOS.
+      </p>
+      <ul class="ml-4 list-disc space-y-0.5 text-sm text-slate-300">
+        <li>The default local endpoint is <code class="text-sky-300">http://localhost:6333</code>.</li>
+        <li>No API key is needed for an instance that only listens on localhost.</li>
+        <li>It must be running whenever you index or search.</li>
+        <li>Check it&rsquo;s up: <code class="text-sky-300">curl http://localhost:6333/healthz</code></li>
+      </ul>
+      <p class="mt-1 text-xs text-slate-500">
+        The index stays on your own disk &mdash; nothing about your code is stored on the
+        homelab, and you can always delete the collection and re-index.
       </p>
     </div>
 
     <div>
-      <h3 class="mb-1 font-medium">VS Code &mdash; Zoo Code (Roo/Kilo-style indexing)</h3>
+      <h3 class="mb-1 font-medium">Step 2 &mdash; VS Code, Zoo Code (Roo/Kilo-style indexing)</h3>
       <p class="mb-1 text-sm text-slate-400">
         In Zoo Code open <strong>Settings &rarr; Codebase Indexing</strong> and set:
       </p>
@@ -148,18 +152,18 @@ print(resp.choices[0].message.content)</code></pre>
         <li>API key: your <a href="/keys" class="underline hover:text-sky-400">seko key</a></li>
         <li>Model: <code class="text-sky-300">{{ embedding_model }}</code></li>
         <li>Embedding dimension: <code class="text-sky-300">{{ embedding_dimension }}</code></li>
-        <li>Qdrant URL: <code class="text-sky-300">{{ qdrant_url }}</code>{% if qdrant_api_key %} &middot; Qdrant API key: as above{% endif %}</li>
+        <li>Qdrant URL: <code class="text-sky-300">http://localhost:6333</code> &middot; Qdrant API key: leave blank</li>
       </ul>
       <p class="mt-1 text-sm text-slate-400">Then click <strong>Start indexing</strong>.</p>
       <p class="mt-2 text-xs text-slate-500">
-        Reaching Qdrant needs LAN/Tailscale access to <code>{{ qdrant_url }}</code>. If your
-        Tailscale access is limited to your workspace SSH port, run the editor
-        <em>inside</em> your hosted workspace, which can reach it directly.
+        Previously this page pointed Qdrant at a shared homelab instance. If you indexed
+        against that, your first local index starts from scratch &mdash; just re-run
+        <strong>Start indexing</strong>.
       </p>
     </div>
 
     <div>
-      <h3 class="mb-1 font-medium">Verify &mdash; curl</h3>
+      <h3 class="mb-1 font-medium">Verify the embeddings endpoint &mdash; curl</h3>
       <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>curl {{ llm_base_url }}/embeddings \
   -H "Authorization: ******" \
   -H "Content-Type: application/json" \

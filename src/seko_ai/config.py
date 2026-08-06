@@ -57,11 +57,12 @@ class Settings(BaseSettings):
     # (e.g. Zoo Code codebase indexing). `dimension` is the native vector size clients pin.
     llm_embedding_model: str = "embed"
     llm_embedding_dimension: int = 2560
-    # Shared Qdrant vector DB (stacks/qdrant) that backs codebase indexing. URL is handed to
-    # users on the docs page; the API key is a shared homelab secret (all llm_users share it,
-    # so collections are mutually visible) surfaced only on the SSO-gated docs page.
-    qdrant_url: str = "http://10.37.20.50:6333"
-    qdrant_api_key: str = ""
+    # NOTE: there is deliberately no `qdrant_url` / `qdrant_api_key` setting. The vector
+    # store for codebase indexing runs on the USER's own machine (localhost:6333) — the
+    # homelab Qdrant is internal-only and is never handed out. Exposing one shared,
+    # manage-scoped Qdrant would let any key holder read every other user's indexed source
+    # chunks or drop their collections, and Qdrant's collection-scoped JWTs cannot create
+    # collections (which Zoo Code does automatically), so per-user scoping is not possible.
 
     # --- Workspace orchestration (Docker-over-SSH to epyc) ---
     docker_host: str = "ssh://pushprh@10.37.20.50"

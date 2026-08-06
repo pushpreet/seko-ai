@@ -47,4 +47,18 @@ def test_docs_includes_codebase_indexing(client: TestClient) -> None:
     assert "Codebase indexing" in resp.text
     assert settings.llm_embedding_model in resp.text
     assert str(settings.llm_embedding_dimension) in resp.text
-    assert settings.qdrant_url in resp.text
+
+
+def test_docs_points_qdrant_at_the_users_own_machine(client: TestClient) -> None:
+    """Users run their own Qdrant; the homelab instance is internal-only.
+
+    The page must never leak the homelab's private address or the shared Qdrant API
+    key, and must link out to the official install docs instead of restating them.
+    """
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert "http://localhost:6333" in resp.text
+    assert "qdrant.tech/documentation/installation" in resp.text
+    assert "10.37.20.50" not in resp.text
+    assert "qdrant_url" not in resp.text
+    assert "qdrant_api_key" not in resp.text

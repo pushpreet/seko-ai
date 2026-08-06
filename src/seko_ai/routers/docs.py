@@ -36,7 +36,5 @@ def docs_page(
             "llm_model": settings.llm_model,
             "embedding_model": settings.llm_embedding_model,
             "embedding_dimension": settings.llm_embedding_dimension,
-            "qdrant_url": settings.qdrant_url,
-            "qdrant_api_key": settings.qdrant_api_key,
         },
     )
