@@ -40,6 +40,17 @@ def test_docs_includes_live_endpoint_values(client: TestClient) -> None:
     assert settings.llm_model in resp.text
 
 
+def test_docs_includes_recommended_client_limits(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert "Zoo Code 3.76+" in resp.text
+    assert "Hermes Desktop" in resp.text
+    assert "245760" in resp.text
+    assert "8192" in resp.text
+    assert "at most two images" in resp.text
+    assert "4 MP" in resp.text
+
+
 def test_docs_includes_codebase_indexing(client: TestClient) -> None:
     _login(client, ["llm_users"])
     settings = client.app.state.settings  # type: ignore[attr-defined]

@@ -41,6 +41,51 @@
       </p>
     </div>
 
+    <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4">
+      <h3 class="font-medium text-slate-200">Recommended client limits</h3>
+      <p class="mt-1 text-sm text-slate-400">
+        The server has a 262,144-token hard limit covering the prompt and response. Advertise
+        245,760 tokens to clients and reserve 8,192 output tokens; the remaining margin covers
+        tokenizer differences, tool schemas, and chat-template overhead.
+      </p>
+
+      <div class="mt-3 grid gap-4 lg:grid-cols-2">
+        <div>
+          <h4 class="text-sm font-medium text-slate-300">Zoo Code 3.76+</h4>
+          <p class="mt-1 text-sm text-slate-400">
+            Open <strong>Settings &rarr; OpenAI Compatible</strong>. Under
+            <strong>Custom Model Capabilities</strong>, set:
+          </p>
+          <ul class="ml-4 mt-1 list-disc space-y-0.5 text-sm text-slate-300">
+            <li>Context Window Size: <code class="text-sky-300">245760</code></li>
+            <li>Max Output Tokens: <code class="text-sky-300">8192</code></li>
+            <li><strong>Include max output tokens</strong>: enabled</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-sm font-medium text-slate-300">Hermes Desktop</h4>
+          <p class="mt-1 text-sm text-slate-400">
+            Set <strong>Settings &rarr; Custom Endpoints &rarr; Context</strong> and
+            <strong>Settings &rarr; Model &rarr; Context Window</strong> to
+            <code class="text-sky-300">245760</code>. The equivalent Hermes configuration is:
+          </p>
+          <pre class="mt-1 overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>model:
+  context_length: 245760
+  max_tokens: 8192
+compression:
+  enabled: true
+  threshold: 0.5</code></pre>
+        </div>
+      </div>
+
+      <p class="mt-3 text-xs text-amber-300/90">
+        Image requests accept at most two images and automatically downsize each to 4 MP.
+        Crop very tall full-page screenshots into focused sections so small text remains
+        legible and responses stay below the proxy timeout.
+      </p>
+    </div>
+
     <div>
       <h3 class="mb-1 font-medium">VS Code &mdash; Continue extension</h3>
       <p class="mb-1 text-sm text-slate-400">
