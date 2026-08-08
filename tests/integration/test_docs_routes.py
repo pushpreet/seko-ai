@@ -51,6 +51,19 @@ def test_docs_includes_recommended_client_limits(client: TestClient) -> None:
     assert "4 MP" in resp.text
 
 
+def test_docs_recommends_private_tailscale_path(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    settings = client.app.state.settings  # type: ignore[attr-defined]
+    resp = client.get("/docs")
+    assert "Enable Tailscale for long requests" in resp.text
+    assert "sudo tailscale set --accept-routes=true" in resp.text
+    assert "Use Tailscale DNS settings" in resp.text
+    assert "same URL falls back to Cloudflare" in resp.text
+    assert "disable Tailscale to deliberately" in resp.text
+    assert "cf-ray" in resp.text
+    assert f"{settings.llm_public_url.removesuffix('/v1')}/health/liveliness" in resp.text
+
+
 def test_docs_includes_codebase_indexing(client: TestClient) -> None:
     _login(client, ["llm_users"])
     settings = client.app.state.settings  # type: ignore[attr-defined]

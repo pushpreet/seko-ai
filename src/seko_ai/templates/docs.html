@@ -29,6 +29,36 @@
     </dl>
   </div>
 
+  <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4 text-sm">
+    <h2 class="font-medium text-slate-200">Enable Tailscale for long requests</h2>
+    <p class="mt-1 text-slate-300">
+      Install Tailscale, sign in with the identity invited by the administrator, and keep it
+      enabled while using Zoo Code or Hermes. The Base URL above does not change: connected
+      users reach it privately and bypass Cloudflare's first-byte timeout.
+    </p>
+    <ul class="ml-4 mt-2 list-disc space-y-1 text-slate-400">
+      <li>Windows, macOS, iOS, and Android accept the private route automatically.</li>
+      <li>
+        On Linux, run
+        <code class="text-sky-300">sudo tailscale set --accept-routes=true</code>.
+      </li>
+      <li>Leave <strong>Use Tailscale DNS settings</strong> enabled.</li>
+      <li>
+        If Tailscale is off, the same URL falls back to Cloudflare. Short requests can still
+        work, but a queued request may return HTTP 524.
+      </li>
+      <li>
+        If Tailscale is on but private DNS is unavailable, disable Tailscale to deliberately
+        use the Cloudflare fallback.
+      </li>
+    </ul>
+    <p class="mt-2 text-xs text-slate-500">
+      Quick check:
+      <code class="text-sky-300">curl -sS -D - -o /dev/null {{ llm_base_url | replace('/v1', '') }}/health/liveliness</code>.
+      The private path has no <code>cf-ray</code> response header.
+    </p>
+  </div>
+
   <!-- Direct API -->
   <div id="direct-api" class="space-y-4 scroll-mt-20">
     <div>
