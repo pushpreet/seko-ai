@@ -73,6 +73,28 @@ def test_docs_includes_codebase_indexing(client: TestClient) -> None:
     assert str(settings.llm_embedding_dimension) in resp.text
 
 
+def test_docs_includes_image_generation(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    settings = client.app.state.settings  # type: ignore[attr-defined]
+    resp = client.get("/docs")
+    assert "Image generation" in resp.text
+    assert settings.llm_image_model in resp.text
+    assert settings.llm_image_quality_model in resp.text
+    assert "Fast default" in resp.text
+    assert "Quality and text" in resp.text
+    assert "4-8 seconds" in resp.text
+    assert "4-5 minutes" in resp.text
+    assert "/images/generations" in resp.text
+    assert "b64_json" in resp.text
+    assert "same seko key" in resp.text
+    assert "Zoo Code and Hermes" in resp.text
+    assert "OpenAI Compatible Image Generate" in resp.text
+    assert "b4acfc2d2773b5d420f8ddb9299fa0513d7e9b18" in resp.text
+    assert "IMAGES_OPENAI_API_BASE_URL" in resp.text
+    assert "Browser-only image frontends" in resp.text
+    assert "not the node or workflow JSON" in resp.text
+
+
 def test_docs_points_qdrant_at_the_users_own_machine(client: TestClient) -> None:
     """Users run their own Qdrant; the homelab instance is internal-only.
 

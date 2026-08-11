@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     # (e.g. Zoo Code codebase indexing). `dimension` is the native vector size clients pin.
     llm_embedding_model: str = "embed"
     llm_embedding_dimension: int = 2560
+    # OpenAI Images-compatible models exposed through the same LiteLLM virtual key.
+    llm_image_model: str = "flux-2-klein-4b"
+    llm_image_quality_model: str = "qwen-image-2512"
     # NOTE: there is deliberately no `qdrant_url` / `qdrant_api_key` setting. The vector
     # store for codebase indexing runs on the USER's own machine (localhost:6333) — the
     # homelab Qdrant is internal-only and is never handed out. Exposing one shared,

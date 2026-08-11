@@ -165,6 +165,171 @@ print(resp.choices[0].message.content)</code></pre>
     </div>
   </div>
 
+  <!-- Image generation -->
+  <div id="image-generation" class="space-y-4 scroll-mt-20">
+    <div>
+      <h2 class="text-xl font-semibold">Image generation</h2>
+      <p class="mt-1 max-w-2xl text-sm text-slate-400">
+        Generate images through the OpenAI Images API. Your
+        <a href="/keys" class="underline hover:text-sky-400">same seko key</a> covers chat,
+        embeddings, MCP tools, and images; there is no separate image entitlement.
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
+      <h3 class="font-medium text-slate-200">Images at a glance</h3>
+      <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[10rem_1fr]">
+        <dt class="text-slate-400">Base URL</dt>
+        <dd><code class="select-all text-sky-300">{{ llm_base_url }}</code></dd>
+        <dt class="text-slate-400">Fast default</dt>
+        <dd><code class="select-all text-sky-300">{{ image_model }}</code> &mdash; usually 4-8 seconds</dd>
+        <dt class="text-slate-400">Quality and text</dt>
+        <dd><code class="select-all text-sky-300">{{ image_quality_model }}</code> &mdash; usually 4-5 minutes</dd>
+        <dt class="text-slate-400">Endpoint</dt>
+        <dd><code class="select-all text-sky-300">POST /images/generations</code></dd>
+        <dt class="text-slate-400">Sizes</dt>
+        <dd><code>1024x1024</code>, <code>1536x1024</code>, or <code>1024x1536</code></dd>
+      </dl>
+      <p class="mt-2 text-xs text-slate-500">
+        One image per request. Responses use <code>b64_json</code>; generated server files
+        are removed after the response and are not retained in the homelab backup.
+      </p>
+      <p class="mt-2 text-xs text-slate-400">
+        Start with <code>{{ image_model }}</code> for interactive work. Choose
+        <code>{{ image_quality_model }}</code> when typography, fine detail, or difficult
+        prompt adherence matters more than speed. Requests are serialized on one GPU.
+      </p>
+      <p class="mt-2 text-xs text-amber-300/90">
+        Keep Tailscale connected for <code>{{ image_quality_model }}</code>. Its multi-minute
+        response can exceed Cloudflare's off-tailnet first-byte timeout.
+      </p>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">curl</h3>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>curl {{ llm_base_url }}/images/generations \
+  -H "Authorization: Bearer &lt;YOUR_KEY&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"model":"{{ image_model }}","prompt":"A cozy cabin under the northern lights","n":1,"size":"1024x1024","response_format":"b64_json"}' \
+  | jq -r '.data[0].b64_json' | base64 --decode &gt; image.png</code></pre>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">OpenAI SDK (Python)</h3>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>import base64
+from openai import OpenAI
+
+client = OpenAI(base_url="{{ llm_base_url }}", api_key="&lt;YOUR_KEY&gt;")
+result = client.images.generate(
+    model="{{ image_model }}",
+    prompt="A cozy cabin under the northern lights",
+    size="1024x1024",
+    response_format="b64_json",
+)
+with open("image.png", "wb") as image:
+    image.write(base64.b64decode(result.data[0].b64_json))</code></pre>
+    </div>
+
+    <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4">
+      <h3 class="font-medium text-slate-200">Use it from your local ComfyUI</h3>
+      <p class="mt-1 text-sm text-slate-400">
+        Install the reviewed
+        <a href="https://github.com/wennatre/ComfyUI-OpenAI-Compatible-Image" target="_blank" rel="noopener" class="underline hover:text-sky-400">OpenAI Compatible Image</a>
+        node at the pinned commit below. This is a <strong>client</strong>: your local
+        workflow calls seko&rsquo;s API and receives the generated image as a normal ComfyUI
+        <code>IMAGE</code> output.
+      </p>
+      <pre class="mt-2 overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>cd ComfyUI/custom_nodes
+git clone https://github.com/wennatre/ComfyUI-OpenAI-Compatible-Image.git
+cd ComfyUI-OpenAI-Compatible-Image
+git checkout b4acfc2d2773b5d420f8ddb9299fa0513d7e9b18
+python -m pip install -r requirements.txt
+
+# Set this in the shell/service that starts ComfyUI, then restart ComfyUI.
+export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
+      <p class="mt-2 text-xs text-slate-500">
+        Windows PowerShell:
+        <code class="text-sky-300">$env:OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code>.
+        Leave the node&rsquo;s <strong>api_key</strong> field blank so shared workflow JSON
+        never contains your key.
+      </p>
+      <p class="mt-3 text-sm text-slate-300">
+        Add <strong>OpenAI Compatible Image Generate</strong> and configure:
+      </p>
+      <dl class="mt-1 grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[10rem_1fr]">
+        <dt class="text-slate-400">api_base</dt>
+        <dd><code class="text-sky-300">{{ llm_base_url }}</code></dd>
+        <dt class="text-slate-400">model</dt>
+        <dd><code class="text-sky-300">{{ image_model }}</code> (fast) or <code class="text-sky-300">{{ image_quality_model }}</code> (quality)</dd>
+        <dt class="text-slate-400">endpoint_path</dt>
+        <dd><code>/images/generations</code></dd>
+        <dt class="text-slate-400">size</dt>
+        <dd><code>1024x1024</code>, <code>1536x1024</code>, or <code>1024x1536</code></dd>
+        <dt class="text-slate-400">quality / n</dt>
+        <dd><code>auto</code> / <code>1</code></dd>
+        <dt class="text-slate-400">timeout_seconds</dt>
+        <dd><code>1800</code></dd>
+        <dt class="text-slate-400">extra_body_json</dt>
+        <dd><code>{}</code> (the server defaults to <code>b64_json</code>)</dd>
+      </dl>
+      <p class="mt-2 text-sm text-slate-400">
+        Connect its <code>IMAGE</code> output to Preview Image, Save Image, or the rest of
+        your local workflow. Keep <strong>save_raw_response</strong> off unless debugging:
+        it writes the base64 response to your local temporary directory.
+      </p>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">Personal Open WebUI</h3>
+      <p class="mb-1 text-sm text-slate-400">
+        Open WebUI is the recommended browser GUI because its backend holds the key; the
+        browser never calls seko directly. In <strong>Admin Settings &rarr; Images</strong>
+        choose the OpenAI engine and use the base URL with the fast model, or set:
+      </p>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>IMAGE_GENERATION_ENGINE=openai
+IMAGES_OPENAI_API_BASE_URL={{ llm_base_url }}
+IMAGES_OPENAI_API_KEY=&lt;YOUR_KEY&gt;
+IMAGE_GENERATION_MODEL={{ image_model }}</code></pre>
+    </div>
+
+    <div class="overflow-x-auto rounded-lg border border-slate-800">
+      <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
+        <thead class="bg-slate-900/70 text-slate-300">
+          <tr>
+            <th class="px-3 py-2 font-medium">Client</th>
+            <th class="px-3 py-2 font-medium">Status and setup</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800 text-slate-400">
+          <tr>
+            <td class="px-3 py-2 text-slate-200">Open WebUI (personal install)</td>
+            <td class="px-3 py-2">Recommended GUI. Select its OpenAI image engine, use this base URL and key, and enter <code>{{ image_model }}</code>. Switch to <code>{{ image_quality_model }}</code> for the slower quality tier.</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2 text-slate-200">OpenAI SDKs, curl, HTTPie, Postman, Bruno</td>
+            <td class="px-3 py-2">Supported. Call <code>/images/generations</code> and request <code>b64_json</code>.</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2 text-slate-200">n8n</td>
+            <td class="px-3 py-2">Use an HTTP Request node, POST to this endpoint, keep <code>Authorization: Bearer &lt;key&gt;</code> in n8n Credentials, and decode <code>data[0].b64_json</code> as <code>image/png</code>. The stock OpenAI node may not permit a custom base URL.</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2 text-slate-200">Browser-only image frontends</td>
+            <td class="px-3 py-2">Not recommended. They put the bearer key in browser JavaScript/local storage and expose it to the page and developer tools. Prefer Open WebUI&rsquo;s server-side proxy.</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2 text-slate-200">Local ComfyUI remote node</td>
+            <td class="px-3 py-2">Supported with the pinned setup above. Keep the key in <code>OPENAI_API_KEY</code>, not the node or workflow JSON.</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2 text-slate-200">Zoo Code and Hermes</td>
+            <td class="px-3 py-2">Chat clients only; configuring an OpenAI-compatible chat endpoint does not give them an image-generation UI.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
   <!-- Codebase indexing (embeddings) -->
   <div id="codebase-indexing" class="space-y-4 scroll-mt-20">
     <div>

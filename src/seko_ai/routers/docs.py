@@ -36,5 +36,7 @@ def docs_page(
             "llm_model": settings.llm_model,
             "embedding_model": settings.llm_embedding_model,
             "embedding_dimension": settings.llm_embedding_dimension,
+            "image_model": settings.llm_image_model,
+            "image_quality_model": settings.llm_image_quality_model,
         },
     )
