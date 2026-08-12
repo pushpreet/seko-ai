@@ -1,4 +1,4 @@
-"""User-facing docs: how to reach the shared LLM via the direct (OpenAI-compatible) API."""
+"""User-facing docs for the shared chat, embedding, image, and MCP surfaces."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ def docs_page(
     user: User = Depends(get_current_db_user),  # noqa: B008
     settings: Settings = Depends(get_app_settings),  # noqa: B008
 ) -> HTMLResponse:
-    """Explain how to reach the backend LLM via the direct API, with live endpoint/model."""
+    """Render the client guide with the deployment's live endpoints and model names."""
     return _templates().TemplateResponse(
         request,
         "docs.html",

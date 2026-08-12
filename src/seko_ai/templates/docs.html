@@ -165,53 +165,121 @@ print(resp.choices[0].message.content)</code></pre>
     </div>
   </div>
 
-  <!-- Image generation -->
+  <!-- Image generation and editing -->
   <div id="image-generation" class="space-y-4 scroll-mt-20">
     <div>
-      <h2 class="text-xl font-semibold">Image generation</h2>
+      <h2 class="text-xl font-semibold">Image generation and editing</h2>
       <p class="mt-1 max-w-2xl text-sm text-slate-400">
-        Generate images through the OpenAI Images API. Your
+        Generate, edit, and inpaint images through the hosted interfaces or the OpenAI
+        Images-compatible API. Your
         <a href="/keys" class="underline hover:text-sky-400">same seko key</a> covers chat,
         embeddings, MCP tools, and images; there is no separate image entitlement.
       </p>
     </div>
 
+    <div class="overflow-x-auto rounded-lg border border-slate-800">
+      <table class="min-w-[42rem] divide-y divide-slate-800 text-left text-sm">
+        <thead class="bg-slate-900/70 text-slate-300">
+          <tr>
+            <th class="px-3 py-2 font-medium">Model</th>
+            <th class="px-3 py-2 font-medium">Capabilities</th>
+            <th class="px-3 py-2 font-medium">Typical latency</th>
+            <th class="px-3 py-2 font-medium">Choose it for</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-800 text-slate-400">
+          <tr>
+            <td class="px-3 py-2"><code class="select-all text-sky-300">{{ image_model }}</code></td>
+            <td class="px-3 py-2 text-slate-200">Fast generation, editing, inpainting</td>
+            <td class="px-3 py-2">4-8 seconds to generate; edits are usually about 12-13 seconds</td>
+            <td class="px-3 py-2">Default interactive work, drafts, and changing one source image</td>
+          </tr>
+          <tr>
+            <td class="px-3 py-2"><code class="select-all text-sky-300">{{ image_quality_model }}</code></td>
+            <td class="px-3 py-2 text-slate-200">Generation only</td>
+            <td class="px-3 py-2">Usually 4-5 minutes</td>
+            <td class="px-3 py-2">Typography, fine detail, and difficult prompt adherence</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
     <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4 text-sm">
-      <h3 class="font-medium text-slate-200">Images at a glance</h3>
-      <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[10rem_1fr]">
+      <h3 class="font-medium text-slate-200">API contract at a glance</h3>
+      <dl class="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[11rem_1fr]">
         <dt class="text-slate-400">Base URL</dt>
         <dd><code class="select-all text-sky-300">{{ llm_base_url }}</code></dd>
-        <dt class="text-slate-400">Fast default</dt>
-        <dd><code class="select-all text-sky-300">{{ image_model }}</code> &mdash; usually 4-8 seconds</dd>
-        <dt class="text-slate-400">Quality and text</dt>
-        <dd><code class="select-all text-sky-300">{{ image_quality_model }}</code> &mdash; usually 4-5 minutes</dd>
-        <dt class="text-slate-400">Endpoint</dt>
+        <dt class="text-slate-400">Generate</dt>
         <dd><code class="select-all text-sky-300">POST /images/generations</code></dd>
+        <dt class="text-slate-400">Edit / inpaint</dt>
+        <dd><code class="select-all text-sky-300">POST /images/edits</code> with <code>{{ image_model }}</code></dd>
         <dt class="text-slate-400">Sizes</dt>
         <dd><code>1024x1024</code>, <code>1536x1024</code>, or <code>1024x1536</code></dd>
+        <dt class="text-slate-400">Output</dt>
+        <dd>One image (<code>n</code> must be <code>1</code>) as <code>b64_json</code></dd>
       </dl>
-      <p class="mt-2 text-xs text-slate-500">
-        One image per request. Responses use <code>b64_json</code>; generated server files
-        are removed after the response and are not retained in the homelab backup.
-      </p>
       <p class="mt-2 text-xs text-slate-400">
-        Start with <code>{{ image_model }}</code> for interactive work. Choose
-        <code>{{ image_quality_model }}</code> when typography, fine detail, or difficult
-        prompt adherence matters more than speed. Requests are serialized on one GPU.
+        Generation, editing, and inpainting share one queue: one request runs and one waits.
+        A third concurrent request receives <code>429</code>; retry it after either slot
+        finishes.
+      </p>
+      <p class="mt-2 text-xs text-slate-500">
+        Generated server files are removed after the response; the API is not a persistent
+        gallery.
       </p>
       <p class="mt-2 text-xs text-amber-300/90">
         Keep Tailscale connected for <code>{{ image_quality_model }}</code>. Its multi-minute
-        response can exceed Cloudflare's off-tailnet first-byte timeout.
+        response can exceed Cloudflare's off-tailnet first-byte timeout. Normal FLUX work is
+        designed for interactive use.
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4">
+      <h3 class="font-medium text-slate-200">Hosted Open WebUI (recommended for people)</h3>
+      <p class="mt-1 text-sm text-slate-400">
+        Sign in with SSO and open
+        <a href="https://chat.pushprh.com/playground/images" target="_blank" rel="noopener" class="font-medium text-sky-300 underline hover:text-sky-200">chat.pushprh.com/playground/images</a>.
+        Generated and edited media is owned by your authenticated account and kept separate
+        from other users.
+      </p>
+      <p class="mt-2 text-sm text-slate-400">
+        For inline generation in a normal <code>{{ llm_model }}</code> conversation, open
+        the composer&rsquo;s <strong>Integrations &rarr; Image</strong> toggle. Image-only
+        models are intentionally absent from the chat model picker; do not select
+        <code>{{ image_model }}</code> as a chat model.
       </p>
     </div>
 
     <div>
-      <h3 class="mb-1 font-medium">curl</h3>
+      <h3 class="mb-1 font-medium">Generate with curl</h3>
       <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>curl {{ llm_base_url }}/images/generations \
   -H "Authorization: Bearer &lt;YOUR_KEY&gt;" \
   -H "Content-Type: application/json" \
   -d '{"model":"{{ image_model }}","prompt":"A cozy cabin under the northern lights","n":1,"size":"1024x1024","response_format":"b64_json"}' \
   | jq -r '.data[0].b64_json' | base64 --decode &gt; image.png</code></pre>
+    </div>
+
+    <div>
+      <h3 class="mb-1 font-medium">Edit or inpaint one image</h3>
+      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>curl {{ llm_base_url }}/images/edits \
+  -H "Authorization: Bearer &lt;YOUR_KEY&gt;" \
+  -F model={{ image_model }} \
+  -F prompt="Change the jacket to blue" \
+  -F size=1024x1024 \
+  -F image=@source.png \
+  -F mask=@mask.png \
+  | jq -r '.data[0].b64_json' | base64 --decode &gt; edited.png</code></pre>
+      <p class="mt-2 text-sm text-slate-400">
+        Omit <code>mask</code> for a prompt-guided edit of the whole image. For inpainting,
+        use a same-size RGBA PNG mask with transparency. Transparent pixels are editable;
+        opaque pixels are preserved.
+      </p>
+      <p class="mt-2 text-xs text-slate-500">
+        The source can be PNG, JPEG, or WebP. Each upload is limited to 20 MiB, 20 million
+        pixels total, and 8192 pixels per dimension. The API accepts one source image and an
+        optional mask; it rejects multiple sources, URLs, server paths, arbitrary workflows,
+        custom nodes, and Qwen edits.
+      </p>
     </div>
 
     <div>
@@ -230,14 +298,45 @@ with open("image.png", "wb") as image:
     image.write(base64.b64decode(result.data[0].b64_json))</code></pre>
     </div>
 
-    <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4">
-      <h3 class="font-medium text-slate-200">Use it from your local ComfyUI</h3>
+    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+      <h3 class="font-medium text-slate-200">Hermes Discord and Desktop</h3>
       <p class="mt-1 text-sm text-slate-400">
-        Install the reviewed
+        Ask Hermes to create an image in plain language. To edit, attach exactly one source
+        image and describe the change; Hermes routes it to FLUX and returns a native image
+        attachment. Hermes does not expose masks or multiple reference images. Use Open
+        WebUI or the direct API when you need inpainting controls.
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-slate-800 bg-slate-900/40 p-4">
+      <h3 class="font-medium text-slate-200">MCP agents</h3>
+      <p class="mt-1 text-sm text-slate-400">
+        Add a Streamable HTTP server at
+        <code class="select-all text-sky-300">https://llm.pushprh.com/mcp/</code> and send
+        your seko key as <code>Authorization: Bearer &lt;YOUR_KEY&gt;</code>.
+        The trailing slash is required; some clients do not preserve the POST body through
+        the redirect from <code>/mcp</code>.
+      </p>
+      <ul class="mt-2 ml-4 list-disc space-y-1 text-sm text-slate-300">
+        <li><code>image-image_generate</code> generates with FLUX or Qwen.</li>
+        <li><code>image-image_edit</code> edits with FLUX and optionally accepts a mask.</li>
+      </ul>
+      <p class="mt-2 text-xs text-slate-500">
+        Source and mask inputs are inline base64, not URLs or server paths. Results include
+        standard MCP image content, so the client must support image content and request
+        sizes large enough for base64 input and output.
+      </p>
+    </div>
+
+    <div class="rounded-lg border border-sky-900/70 bg-sky-950/20 p-4">
+      <h3 class="font-medium text-slate-200">Optional local ComfyUI client</h3>
+      <p class="mt-1 text-sm text-slate-400">
+        The production ComfyUI worker is private and has no public or LAN Web UI. It is not
+        a multi-user login surface. If you already run ComfyUI on your own computer, use
+        the reviewed remote
         <a href="https://github.com/wennatre/ComfyUI-OpenAI-Compatible-Image" target="_blank" rel="noopener" class="underline hover:text-sky-400">OpenAI Compatible Image</a>
-        node at the pinned commit below. This is a <strong>client</strong>: your local
-        workflow calls seko&rsquo;s API and receives the generated image as a normal ComfyUI
-        <code>IMAGE</code> output.
+        node at the pinned commit below. Your local workflow calls seko&rsquo;s narrow API;
+        it does not connect to or expose the production worker.
       </p>
       <pre class="mt-2 overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>cd ComfyUI/custom_nodes
 git clone https://github.com/wennatre/ComfyUI-OpenAI-Compatible-Image.git
@@ -279,19 +378,6 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
       </p>
     </div>
 
-    <div>
-      <h3 class="mb-1 font-medium">Personal Open WebUI</h3>
-      <p class="mb-1 text-sm text-slate-400">
-        Open WebUI is the recommended browser GUI because its backend holds the key; the
-        browser never calls seko directly. In <strong>Admin Settings &rarr; Images</strong>
-        choose the OpenAI engine and use the base URL with the fast model, or set:
-      </p>
-      <pre class="overflow-x-auto rounded bg-slate-950 p-3 text-xs text-slate-200"><code>IMAGE_GENERATION_ENGINE=openai
-IMAGES_OPENAI_API_BASE_URL={{ llm_base_url }}
-IMAGES_OPENAI_API_KEY=&lt;YOUR_KEY&gt;
-IMAGE_GENERATION_MODEL={{ image_model }}</code></pre>
-    </div>
-
     <div class="overflow-x-auto rounded-lg border border-slate-800">
       <table class="min-w-full divide-y divide-slate-800 text-left text-sm">
         <thead class="bg-slate-900/70 text-slate-300">
@@ -302,12 +388,8 @@ IMAGE_GENERATION_MODEL={{ image_model }}</code></pre>
         </thead>
         <tbody class="divide-y divide-slate-800 text-slate-400">
           <tr>
-            <td class="px-3 py-2 text-slate-200">Open WebUI (personal install)</td>
-            <td class="px-3 py-2">Recommended GUI. Select its OpenAI image engine, use this base URL and key, and enter <code>{{ image_model }}</code>. Switch to <code>{{ image_quality_model }}</code> for the slower quality tier.</td>
-          </tr>
-          <tr>
             <td class="px-3 py-2 text-slate-200">OpenAI SDKs, curl, HTTPie, Postman, Bruno</td>
-            <td class="px-3 py-2">Supported. Call <code>/images/generations</code> and request <code>b64_json</code>.</td>
+            <td class="px-3 py-2">Supported. Use the generation or multipart edit endpoint and decode <code>data[0].b64_json</code>.</td>
           </tr>
           <tr>
             <td class="px-3 py-2 text-slate-200">n8n</td>
@@ -315,15 +397,15 @@ IMAGE_GENERATION_MODEL={{ image_model }}</code></pre>
           </tr>
           <tr>
             <td class="px-3 py-2 text-slate-200">Browser-only image frontends</td>
-            <td class="px-3 py-2">Not recommended. They put the bearer key in browser JavaScript/local storage and expose it to the page and developer tools. Prefer Open WebUI&rsquo;s server-side proxy.</td>
+            <td class="px-3 py-2">Not recommended. They expose the bearer key to browser JavaScript and local storage. Prefer hosted Open WebUI&rsquo;s server-side credential.</td>
           </tr>
           <tr>
             <td class="px-3 py-2 text-slate-200">Local ComfyUI remote node</td>
             <td class="px-3 py-2">Supported with the pinned setup above. Keep the key in <code>OPENAI_API_KEY</code>, not the node or workflow JSON.</td>
           </tr>
           <tr>
-            <td class="px-3 py-2 text-slate-200">Zoo Code and Hermes</td>
-            <td class="px-3 py-2">Chat clients only; configuring an OpenAI-compatible chat endpoint does not give them an image-generation UI.</td>
+            <td class="px-3 py-2 text-slate-200">Generic chat clients</td>
+            <td class="px-3 py-2">A custom chat endpoint alone is not an image UI. Use the client&rsquo;s dedicated Images API or MCP support; Hermes is already configured with its native image provider.</td>
           </tr>
         </tbody>
       </table>

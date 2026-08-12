@@ -73,26 +73,64 @@ def test_docs_includes_codebase_indexing(client: TestClient) -> None:
     assert str(settings.llm_embedding_dimension) in resp.text
 
 
-def test_docs_includes_image_generation(client: TestClient) -> None:
+def test_docs_includes_image_generation_and_editing(client: TestClient) -> None:
     _login(client, ["llm_users"])
     settings = client.app.state.settings  # type: ignore[attr-defined]
     resp = client.get("/docs")
-    assert "Image generation" in resp.text
+    assert "Image generation and editing" in resp.text
     assert settings.llm_image_model in resp.text
     assert settings.llm_image_quality_model in resp.text
-    assert "Fast default" in resp.text
-    assert "Quality and text" in resp.text
+    assert "Fast generation, editing, inpainting" in resp.text
+    assert "Generation only" in resp.text
     assert "4-8 seconds" in resp.text
     assert "4-5 minutes" in resp.text
     assert "/images/generations" in resp.text
+    assert "/images/edits" in resp.text
+    assert "mask=@mask.png" in resp.text
+    assert "same-size RGBA PNG" in resp.text
+    assert "Transparent pixels are editable" in resp.text
+    assert "20 MiB" in resp.text
+    assert "20 million" in resp.text
+    assert "8192 pixels per dimension" in resp.text
+    assert "one request runs and one waits" in resp.text
+    assert "429" in resp.text
+    assert "<code>n</code> must be <code>1</code>" in resp.text
     assert "b64_json" in resp.text
     assert "same seko key" in resp.text
-    assert "Zoo Code and Hermes" in resp.text
+
+
+def test_docs_includes_hosted_image_surfaces(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert "https://chat.pushprh.com/playground/images" in resp.text
+    assert "Integrations &rarr; Image" in resp.text
+    assert "owned by your authenticated account" in resp.text
+    assert "intentionally absent from the chat model picker" in resp.text
+    assert "Hermes Discord and Desktop" in resp.text
+    assert "exactly one source" in resp.text
+    assert "does not expose masks or multiple reference images" in resp.text
+    assert "https://llm.pushprh.com/mcp/" in resp.text
+    assert "The trailing slash is required" in resp.text
+    assert "image-image_generate" in resp.text
+    assert "image-image_edit" in resp.text
+    assert "inline base64" in resp.text
+    assert "standard MCP image content" in resp.text
+
+
+def test_docs_keeps_production_comfyui_private(client: TestClient) -> None:
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert "production ComfyUI worker is private" in resp.text
+    assert "no public or LAN Web UI" in resp.text
     assert "OpenAI Compatible Image Generate" in resp.text
     assert "b4acfc2d2773b5d420f8ddb9299fa0513d7e9b18" in resp.text
-    assert "IMAGES_OPENAI_API_BASE_URL" in resp.text
     assert "Browser-only image frontends" in resp.text
     assert "not the node or workflow JSON" in resp.text
+    assert "Chat clients only" not in resp.text
+    assert "50-step" not in resp.text
+    assert "image-gen-comfyui" not in resp.text
+    assert "LITELLM_MASTER_KEY" not in resp.text
+    assert ":8188" not in resp.text
 
 
 def test_docs_points_qdrant_at_the_users_own_machine(client: TestClient) -> None:
