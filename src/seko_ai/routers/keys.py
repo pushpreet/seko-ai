@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -44,6 +46,7 @@ def keys_page(
             "endpoint": settings.llm_public_url,
             "model": settings.llm_model,
             "new_key": None,
+            "error": None,
         },
     )
 
@@ -51,6 +54,7 @@ def keys_page(
 @router.post("", response_class=HTMLResponse)
 async def create_key(
     request: Request,
+    name: Annotated[str, Form()],
     user: User = Depends(get_current_db_user),  # noqa: B008
     session: Session = Depends(get_session),  # noqa: B008
     settings: Settings = Depends(get_app_settings),  # noqa: B008
@@ -59,21 +63,41 @@ async def create_key(
     """Mint a new virtual key and render the one-time reveal + updated list."""
     try:
         api_key, plaintext = await keys_service.create_key_for_user(
-            session, client, user, settings
+            session, client, user, settings, name=name
         )
+    except keys_service.InvalidKeyName as exc:
+        return _keys_panel(request, session, user.id, error=str(exc), status_code=422)
     except (LiteLLMError, ValueError) as exc:
         log.warning("key_create_failed", error=str(exc))
-        return _error_fragment(request, "Could not create a key. Please try again.")
+        return _keys_panel(
+            request,
+            session,
+            user.id,
+            error="Could not create a key. Please try again.",
+            status_code=502,
+        )
 
     log.info("key_created", user_id=user.id, key_id=api_key.id)
-    return _templates().TemplateResponse(
-        request,
-        "_keys_panel.html",
-        {
-            "keys": keys_service.list_user_keys(session, user.id),
-            "new_key": plaintext,
-        },
-    )
+    return _keys_panel(request, session, user.id, new_key=plaintext)
+
+
+@router.post("/{key_id}/name", response_class=HTMLResponse)
+def rename_key(
+    request: Request,
+    key_id: int,
+    name: Annotated[str, Form()],
+    user: User = Depends(get_current_db_user),  # noqa: B008
+    session: Session = Depends(get_session),  # noqa: B008
+) -> HTMLResponse:
+    """Rename a user-owned logical API key."""
+    try:
+        identity = keys_service.rename_identity(session, user.id, key_id, name)
+    except keys_service.InvalidKeyName as exc:
+        return _keys_panel(request, session, user.id, error=str(exc), status_code=422)
+    if identity is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Key not found")
+    log.info("key_renamed", user_id=user.id, key_id=key_id, identity_id=identity.id)
+    return _keys_panel(request, session, user.id)
 
 
 @router.post("/{key_id}/rotate", response_class=HTMLResponse)
@@ -93,14 +117,16 @@ async def rotate_key(
         _, plaintext = await keys_service.rotate_key(session, client, user, api_key, settings)
     except (LiteLLMError, ValueError) as exc:
         log.warning("key_rotate_failed", error=str(exc))
-        return _error_fragment(request, "Could not rotate the key. Please try again.")
+        return _keys_panel(
+            request,
+            session,
+            user.id,
+            error="Could not rotate the key. Please try again.",
+            status_code=502,
+        )
 
     log.info("key_rotated", user_id=user.id, old_key_id=key_id)
-    return _templates().TemplateResponse(
-        request,
-        "_keys_panel.html",
-        {"keys": keys_service.list_user_keys(session, user.id), "new_key": plaintext},
-    )
+    return _keys_panel(request, session, user.id, new_key=plaintext)
 
 
 @router.post("/{key_id}/revoke", response_class=HTMLResponse)
@@ -119,14 +145,16 @@ async def revoke_key(
         await keys_service.revoke_key(session, client, api_key)
     except LiteLLMError as exc:
         log.warning("key_revoke_failed", error=str(exc))
-        return _error_fragment(request, "Could not revoke the key. Please try again.")
+        return _keys_panel(
+            request,
+            session,
+            user.id,
+            error="Could not revoke the key. Please try again.",
+            status_code=502,
+        )
 
     log.info("key_revoked", user_id=user.id, key_id=key_id)
-    return _templates().TemplateResponse(
-        request,
-        "_keys_panel.html",
-        {"keys": keys_service.list_user_keys(session, user.id), "new_key": None},
-    )
+    return _keys_panel(request, session, user.id)
 
 
 def _session_user(request: Request) -> dict[str, object] | None:
@@ -134,7 +162,22 @@ def _session_user(request: Request) -> dict[str, object] | None:
     return user if isinstance(user, dict) else None
 
 
-def _error_fragment(request: Request, message: str) -> HTMLResponse:
+def _keys_panel(
+    request: Request,
+    session: Session,
+    user_id: int,
+    *,
+    new_key: str | None = None,
+    error: str | None = None,
+    status_code: int = 200,
+) -> HTMLResponse:
     return _templates().TemplateResponse(
-        request, "_error.html", {"message": message}, status_code=502
+        request,
+        "_keys_panel.html",
+        {
+            "keys": keys_service.list_user_keys(session, user_id),
+            "new_key": new_key,
+            "error": error,
+        },
+        status_code=status_code,
     )

@@ -6,7 +6,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
-from seko_ai.models import ApiKey, User
+from seko_ai.models import ApiKey, ApiKeyIdentity, User
 from seko_ai.services import usage as us
 
 
@@ -48,7 +48,7 @@ def test_attribute_buckets_keys_to_owners() -> None:
         _key(1, token="tok-1", alias="seko-alice-1"),
         _key(2, token="tok-2", alias="seko-bob-1"),
     ]
-    by_token, by_alias = us._key_index(keys)
+    by_token, by_alias, _ = us._key_index(keys)
     rows = [
         _day(("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30))),
         _day(("tok-2", "seko-bob-1", _metrics(50, 1, 35, 15))),
@@ -64,7 +64,7 @@ def test_attribute_sums_multiple_keys_and_days_per_user() -> None:
         _key(1, token="tok-a", alias="seko-alice-a"),
         _key(1, token="tok-b", alias="seko-alice-b"),  # rotated: same user, second key
     ]
-    by_token, by_alias = us._key_index(keys)
+    by_token, by_alias, _ = us._key_index(keys)
     rows = [
         _day(
             ("tok-a", "seko-alice-a", _metrics(100, 2, 70, 30)),
@@ -82,7 +82,7 @@ def test_attribute_sums_multiple_keys_and_days_per_user() -> None:
 def test_attribute_falls_back_to_alias_when_token_unknown() -> None:
     # Local row only knows the alias (e.g. token id drifted); alias still maps it.
     keys = [_key(3, token="stored-token", alias="seko-carol-1")]
-    by_token, by_alias = us._key_index(keys)
+    by_token, by_alias, _ = us._key_index(keys)
     rows = [_day(("different-token", "seko-carol-1", _metrics(9, 1, 5, 4)))]
     totals = us.attribute(rows, by_token, by_alias).users
     assert totals[3].total_tokens == 9
@@ -90,7 +90,7 @@ def test_attribute_falls_back_to_alias_when_token_unknown() -> None:
 
 def test_attribute_keeps_unknown_out_of_users_bucket() -> None:
     keys = [_key(1, token="tok-1", alias="seko-alice-1")]
-    by_token, by_alias = us._key_index(keys)
+    by_token, by_alias, _ = us._key_index(keys)
     rows = [
         _day(("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30))),
         _day(("ghost-token", "seko-ghost", _metrics(999, 9, 900, 99))),  # not ours
@@ -129,7 +129,7 @@ def test_attribute_buckets_non_service_alias_as_unknown() -> None:
 
 def test_attribute_unknown_empty_when_all_keys_are_user_or_service() -> None:
     keys = [_key(1, token="tok-1", alias="seko-alice-1")]
-    by_token, by_alias = us._key_index(keys)
+    by_token, by_alias, _ = us._key_index(keys)
     rows = [
         _day(
             ("tok-1", "seko-alice-1", _metrics(100, 2, 70, 30)),
@@ -205,6 +205,120 @@ async def test_collect_returns_per_user_summaries() -> None:
     summaries = (await us.collect(Fake(), users, keys, service_prefixes=["hermes"])).users
     assert summaries[3].total_tokens == 0
     assert summaries[3].available is True
+
+
+async def test_collect_groups_rotations_and_models_under_named_key() -> None:
+    class Fake:
+        async def daily_activity(self, *, start_date: str, end_date: str, page_size: int = 1000):
+            day = _day(
+                ("tok-old", "seko-alice-old", _metrics(100, 2, 70, 30)),
+                ("tok-new", "seko-alice-new", _metrics(50, 1, 30, 20)),
+            )
+            day["breakdown"]["models"] = {
+                "qwen": {
+                    "api_key_breakdown": {
+                        "tok-old": {
+                            "metrics": _metrics(100, 2, 70, 30),
+                            "metadata": {"key_alias": "seko-alice-old"},
+                        }
+                    }
+                },
+                "embed": {
+                    "api_key_breakdown": {
+                        "tok-new": {
+                            "metrics": _metrics(50, 1, 30, 20),
+                            "metadata": {"key_alias": "seko-alice-new"},
+                        }
+                    }
+                },
+            }
+            return [day]
+
+    identity = ApiKeyIdentity(
+        id=7,
+        user_id=1,
+        name="Zoo Code",
+        normalized_name="zoo code",
+    )
+    keys = [
+        ApiKey(
+            user_id=1,
+            identity=identity,
+            litellm_key_id="tok-old",
+            key_alias="seko-alice-old",
+            masked_key="sk-old",
+            active=False,
+        ),
+        ApiKey(
+            user_id=1,
+            identity=identity,
+            litellm_key_id="tok-new",
+            key_alias="seko-alice-new",
+            masked_key="sk-new",
+            active=True,
+        ),
+    ]
+
+    report = await us.collect(Fake(), [_user(1, "alice")], keys)
+
+    assert report.users[1].total_tokens == 150
+    assert len(report.users[1].keys) == 1
+    logical = report.users[1].keys[0]
+    assert logical.label == "Zoo Code"
+    assert logical.masked_key == "sk-new"
+    assert logical.active is True
+    assert logical.total_tokens == 150
+    assert [(model.label, model.total_tokens) for model in logical.models] == [
+        ("qwen", 100),
+        ("embed", 50),
+    ]
+
+
+async def test_collect_includes_workspace_usage_only_in_user_total() -> None:
+    class Fake:
+        async def daily_activity(self, *, start_date: str, end_date: str, page_size: int = 1000):
+            return [
+                _day(
+                    ("tok-user", "seko-alice-user", _metrics(100, 2, 70, 30)),
+                    ("tok-workspace", "seko-alice-workspace", _metrics(50, 1, 35, 15)),
+                )
+            ]
+
+    user_key = _key(1, token="tok-user", alias="seko-alice-user")
+    workspace_key = _key(1, token="tok-workspace", alias="seko-alice-workspace")
+    workspace_key.workspace_id = 7
+
+    report = await us.collect(Fake(), [_user(1, "alice")], [user_key, workspace_key])
+
+    assert report.users[1].total_tokens == 150
+    assert [key.label for key in report.users[1].keys] == ["seko-alice-user"]
+    assert report.unknown == []
+
+
+def test_attribute_adds_models_to_service_and_unknown_keys() -> None:
+    row = _day(
+        ("svc", "hermes-pk", _metrics(40, 2, 30, 10)),
+        ("mystery", "other-key", _metrics(20, 1, 12, 8)),
+    )
+    row["breakdown"]["models"] = {
+        "qwen": {
+            "api_key_breakdown": {
+                "svc": {
+                    "metrics": _metrics(40, 2, 30, 10),
+                    "metadata": {"key_alias": "hermes-pk"},
+                },
+                "mystery": {
+                    "metrics": _metrics(20, 1, 12, 8),
+                    "metadata": {"key_alias": "other-key"},
+                },
+            }
+        }
+    }
+
+    attribution = us.attribute([row], {}, {}, service_prefixes=["hermes"])
+
+    assert attribution.service_models["hermes-pk"]["qwen"].total_tokens == 40
+    assert attribution.unknown_models["other-key"]["qwen"].total_tokens == 20
 
 
 async def test_collect_degrades_gracefully_on_litellm_error() -> None:

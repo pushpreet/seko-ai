@@ -45,6 +45,9 @@ class User(TimestampMixin, Base):
     api_keys: Mapped[list[ApiKey]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    api_key_identities: Mapped[list[ApiKeyIdentity]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     workspaces: Mapped[list[Workspace]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -71,6 +74,25 @@ class SSHKey(TimestampMixin, Base):
     user: Mapped[User] = relationship(back_populates="ssh_keys")
 
 
+class ApiKeyIdentity(TimestampMixin, Base):
+    """A user-named logical key whose physical LiteLLM token can be rotated."""
+
+    __tablename__ = "api_key_identities"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "normalized_name", name="uq_api_key_identity_user_normalized_name"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    normalized_name: Mapped[str] = mapped_column(String(64))
+
+    user: Mapped[User] = relationship(back_populates="api_key_identities")
+    api_keys: Mapped[list[ApiKey]] = relationship(back_populates="identity")
+
+
 class ApiKey(TimestampMixin, Base):
     """A LiteLLM virtual key issued to a user. We store the LiteLLM token id + a masked hint.
 
@@ -86,12 +108,16 @@ class ApiKey(TimestampMixin, Base):
     workspace_id: Mapped[int | None] = mapped_column(
         ForeignKey("workspaces.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    identity_id: Mapped[int | None] = mapped_column(
+        ForeignKey("api_key_identities.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     litellm_key_id: Mapped[str] = mapped_column(String(255), unique=True)
     key_alias: Mapped[str] = mapped_column(String(255))
     masked_key: Mapped[str] = mapped_column(String(64))
     active: Mapped[bool] = mapped_column(default=True)
 
     user: Mapped[User] = relationship(back_populates="api_keys")
+    identity: Mapped[ApiKeyIdentity | None] = relationship(back_populates="api_keys")
 
 
 class WorkspaceStatus(enum.StrEnum):
@@ -124,9 +150,7 @@ class Workspace(TimestampMixin, Base):
     litellm_key_alias: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Path to the ciphertext home volume on epyc (gocryptfs); backed up by restic.
     volume_path: Mapped[str] = mapped_column(String(512))
-    last_active_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="workspaces")
     backups: Mapped[list[Backup]] = relationship(
@@ -185,9 +209,7 @@ class ServiceState(TimestampMixin, Base):
     )
     # When the current status was entered (drives "down since …").
     since: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
-    last_checked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_detail: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Rolling count of consecutive failed probes (hysteresis across timer runs).
     consecutive_failures: Mapped[int] = mapped_column(Integer, default=0)

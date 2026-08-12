@@ -8,15 +8,46 @@
     </div>
   {% endif %}
 
+  {% if error %}
+    <div class="mb-4 rounded-lg border border-rose-800 bg-rose-950/40 p-3 text-sm text-rose-200">
+      {{ error }}
+    </div>
+  {% endif %}
+
   {% if keys %}
     <ul class="divide-y divide-slate-800 rounded-lg border border-slate-800">
       {% for key in keys %}
-        <li class="flex items-center justify-between p-3 text-sm">
-          <div>
-            <code class="text-slate-200">{{ key.masked_key }}</code>
-            <span class="ml-2 text-xs text-slate-500">{{ key.key_alias }}</span>
+        <li class="flex flex-col gap-3 p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <div class="min-w-0">
+            <div class="font-medium text-slate-100">
+              {{ key.identity.name if key.identity else key.key_alias }}
+            </div>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <code class="text-slate-300">{{ key.masked_key }}</code>
+              <span class="truncate text-xs text-slate-600">{{ key.key_alias }}</span>
+            </div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            {% if key.identity %}
+              <details class="relative">
+                <summary class="cursor-pointer list-none rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700">
+                  Rename
+                </summary>
+                <form
+                  class="mt-2 flex gap-2 rounded border border-slate-700 bg-slate-950 p-2 sm:absolute sm:right-0 sm:z-10 sm:w-72"
+                  hx-post="/keys/{{ key.id }}/name"
+                  hx-target="#keys-panel">
+                  <input
+                    class="min-w-0 flex-1 rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs"
+                    name="name"
+                    required
+                    maxlength="64"
+                    value="{{ key.identity.name }}"
+                    aria-label="New name for {{ key.identity.name }}" />
+                  <button class="rounded bg-sky-700 px-2 py-1 text-xs hover:bg-sky-600">Save</button>
+                </form>
+              </details>
+            {% endif %}
             <button
               class="rounded bg-slate-800 px-2 py-1 text-xs hover:bg-slate-700"
               hx-post="/keys/{{ key.id }}/rotate"
@@ -41,10 +72,22 @@
     </p>
   {% endif %}
 
-  <button
-    class="mt-4 rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500"
+  <form
+    class="mt-4 flex flex-col gap-2 rounded-lg border border-slate-800 p-3 sm:flex-row sm:items-end"
     hx-post="/keys"
-    hx-target="#keys-panel">
-    Generate a new key
-  </button>
+    hx-target="#keys-panel"
+    hx-on::after-request="if(event.detail.successful) this.reset()">
+    <label class="flex-1 text-xs text-slate-400">
+      New key name
+      <input
+        class="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+        name="name"
+        required
+        maxlength="64"
+        placeholder="e.g. Laptop or Zoo Code" />
+    </label>
+    <button class="rounded-lg bg-sky-600 px-4 py-2 text-sm font-medium hover:bg-sky-500">
+      Generate key
+    </button>
+  </form>
 </div>

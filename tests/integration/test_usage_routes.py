@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from seko_ai.deps import get_litellm_client
-from seko_ai.models import ApiKey
+from seko_ai.models import ApiKey, ApiKeyIdentity
 from seko_ai.services.users import get_user_by_subject
 from tests.fakes import FakeLiteLLMClient
 
@@ -37,8 +37,63 @@ class UsageFake(FakeLiteLLMClient):
                                 "completion_tokens": 1200,
                             },
                             "metadata": {"key_alias": ALIAS},
-                        }
-                    }
+                        },
+                        "tok-service": {
+                            "metrics": {
+                                "total_tokens": 100,
+                                "api_requests": 2,
+                                "prompt_tokens": 70,
+                                "completion_tokens": 30,
+                            },
+                            "metadata": {"key_alias": "hermes-pk"},
+                        },
+                        "tok-unknown": {
+                            "metrics": {
+                                "total_tokens": 50,
+                                "api_requests": 1,
+                                "prompt_tokens": 40,
+                                "completion_tokens": 10,
+                            },
+                            "metadata": {"key_alias": "legacy-client"},
+                        },
+                    },
+                    "models": {
+                        "qwen3.6-27b": {
+                            "api_key_breakdown": {
+                                TOKEN: {
+                                    "metrics": {
+                                        "total_tokens": 4200,
+                                        "api_requests": 12,
+                                        "prompt_tokens": 3000,
+                                        "completion_tokens": 1200,
+                                    },
+                                    "metadata": {"key_alias": ALIAS},
+                                }
+                            }
+                        },
+                        "embed": {
+                            "api_key_breakdown": {
+                                "tok-service": {
+                                    "metrics": {
+                                        "total_tokens": 100,
+                                        "api_requests": 2,
+                                        "prompt_tokens": 70,
+                                        "completion_tokens": 30,
+                                    },
+                                    "metadata": {"key_alias": "hermes-pk"},
+                                },
+                                "tok-unknown": {
+                                    "metrics": {
+                                        "total_tokens": 50,
+                                        "api_requests": 1,
+                                        "prompt_tokens": 40,
+                                        "completion_tokens": 10,
+                                    },
+                                    "metadata": {"key_alias": "legacy-client"},
+                                },
+                            }
+                        },
+                    },
                 },
             }
         ]
@@ -57,9 +112,17 @@ def _login(client: TestClient, groups: list[str]) -> None:
 def _give_alice_a_key(session: Session) -> None:
     user = get_user_by_subject(session, "u-usage")
     assert user is not None
+    identity = ApiKeyIdentity(
+        user_id=user.id,
+        name="Laptop",
+        normalized_name="laptop",
+    )
+    session.add(identity)
+    session.flush()
     session.add(
         ApiKey(
             user_id=user.id,
+            identity_id=identity.id,
             litellm_key_id=TOKEN,
             key_alias=ALIAS,
             masked_key="sk-fa…lice",
@@ -92,6 +155,9 @@ def test_user_sees_own_usage(client: TestClient, usage_llm: None, db_session: Se
     assert "1,200" in resp.text  # generated tokens formatted
     assert "Spend" not in resp.text
     assert "(admin)" not in resp.text
+    assert "Laptop" in resp.text
+    assert "qwen3.6-27b" in resp.text
+    assert "<details open" in resp.text
 
 
 def test_admin_sees_all_users_table(
@@ -105,3 +171,8 @@ def test_admin_sees_all_users_table(
     assert "Users" in resp.text
     assert "Services / Agents" in resp.text
     assert "4,200" in resp.text  # admin's own key usage shown in the table
+    assert "Laptop" in resp.text
+    assert "hermes-pk" in resp.text
+    assert "legacy-client" in resp.text
+    assert "embed" in resp.text
+    assert "Models (1)" in resp.text

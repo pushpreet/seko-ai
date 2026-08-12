@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}seko-ai &middot; usage{% endblock %}
+
 {% macro summary_card(s) %}
   <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
     <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-4">
@@ -20,33 +21,82 @@
     </div>
   </div>
 {% endmacro %}
-{% macro usage_table(title, first_column, rows, label_attr) %}
-  <div class="space-y-2">
-    <h2 class="text-lg font-medium">{{ title }} <span class="text-xs text-amber-400">(admin)</span></h2>
-    <table class="w-full text-sm">
-      <thead class="text-left text-slate-400">
-        <tr>
-          <th class="py-1">{{ first_column }}</th>
-          <th>Requests</th>
-          <th>Tokens</th>
-          <th>Prompt</th>
-          <th>Generate</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-800">
-        {% for row in rows %}
-          <tr>
-            <td class="py-1">{{ row|attr(label_attr) }}</td>
-            <td>{{ row.total_requests }}</td>
-            <td>{{ "{:,}".format(row.total_tokens) }}</td>
-            <td>{{ "{:,}".format(row.prompt_tokens) }}</td>
-            <td>{{ "{:,}".format(row.completion_tokens) }}</td>
-          </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+
+{% macro table_header(first_column) %}
+  <div class="grid min-w-[42rem] grid-cols-5 gap-3 border-b border-slate-800 px-3 py-2 text-xs font-medium text-slate-400">
+    <div>{{ first_column }}</div>
+    <div>Requests</div>
+    <div>Tokens</div>
+    <div>Prompt</div>
+    <div>Generate</div>
   </div>
 {% endmacro %}
+
+{% macro model_rows(models) %}
+  {% if models %}
+    <div class="ml-4 border-l-2 border-violet-800/70">
+      {% for model in models %}
+        <div class="grid min-w-[40rem] grid-cols-5 gap-3 bg-violet-950/10 px-3 py-2 text-xs text-slate-300">
+          <div class="flex min-w-0 items-center gap-2 pl-3">
+            <span class="rounded bg-violet-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-violet-200">Model</span>
+            <span class="truncate" title="{{ model.label }}">{{ model.label }}</span>
+          </div>
+          <div>{{ model.total_requests }}</div>
+          <div>{{ "{:,}".format(model.total_tokens) }}</div>
+          <div>{{ "{:,}".format(model.prompt_tokens) }}</div>
+          <div>{{ "{:,}".format(model.completion_tokens) }}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{% macro key_rows(rows, badge="Key") %}
+  <div class="divide-y divide-slate-800/80">
+    {% for row in rows %}
+      <div class="border-l-2 border-sky-800/70 bg-slate-950/30">
+        <div class="grid min-w-[42rem] grid-cols-5 gap-3 px-3 py-2 text-sm">
+          <div class="flex min-w-0 items-center gap-2 pl-2">
+            <span class="rounded bg-sky-900/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-sky-200">{{ badge }}</span>
+            <span class="truncate font-medium" title="{{ row.label }}">{{ row.label }}</span>
+            {% if row.active is defined and not row.active %}
+              <span class="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">revoked</span>
+            {% endif %}
+            {% if row.masked_key is defined and row.masked_key %}
+              <code class="text-[10px] text-slate-500">{{ row.masked_key }}</code>
+            {% endif %}
+          </div>
+          <div>{{ row.total_requests }}</div>
+          <div>{{ "{:,}".format(row.total_tokens) }}</div>
+          <div>{{ "{:,}".format(row.prompt_tokens) }}</div>
+          <div>{{ "{:,}".format(row.completion_tokens) }}</div>
+        </div>
+        {% if row.models %}
+          <details class="group border-t border-slate-800/70">
+            <summary class="cursor-pointer list-none px-5 py-1.5 text-xs text-violet-300 hover:bg-violet-950/20">
+              <span class="inline-block transition-transform group-open:rotate-90" aria-hidden="true">&#9656;</span>
+              Models ({{ row.models|length }})
+            </summary>
+            {{ model_rows(row.models) }}
+          </details>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro category(title, first_column, rows, badge) %}
+  <details open class="rounded-lg border border-slate-800">
+    <summary class="cursor-pointer px-4 py-3 text-lg font-medium">
+      {{ title }} <span class="text-xs text-amber-400">(admin)</span>
+    </summary>
+    <div class="overflow-x-auto border-t border-slate-800">
+      {{ table_header(first_column) }}
+      {{ key_rows(rows, badge) }}
+    </div>
+  </details>
+{% endmacro %}
+
 {% block content %}
 <section class="space-y-6">
   <h1 class="text-2xl font-semibold">Usage</h1>
@@ -56,13 +106,47 @@
     </p>
   {% else %}
     {{ summary_card(mine) }}
+    <details open class="rounded-lg border border-slate-800 bg-slate-900/30">
+      <summary class="cursor-pointer px-4 py-3 font-medium">Usage by API key</summary>
+      <div class="overflow-x-auto border-t border-slate-800">
+        {{ table_header("Key") }}
+        {% if mine.keys %}
+          {{ key_rows(mine.keys) }}
+        {% else %}
+          <p class="p-3 text-sm text-slate-400">No API key usage in this period.</p>
+        {% endif %}
+      </div>
+    </details>
   {% endif %}
 
   {% if everyone is not none %}
-    {{ usage_table("Users", "User", everyone, "username") }}
-    {{ usage_table("Services / Agents", "Alias", services, "label") }}
+    <div class="space-y-2">
+      <h2 class="text-lg font-medium">Users <span class="text-xs text-amber-400">(admin)</span></h2>
+      <div class="overflow-x-auto rounded-lg border border-slate-800">
+        {{ table_header("User") }}
+        <div class="divide-y divide-slate-800">
+          {% for row in everyone %}
+            <details open class="group">
+              <summary class="grid min-w-[42rem] cursor-pointer list-none grid-cols-5 gap-3 bg-slate-900/40 px-3 py-2 text-sm font-medium hover:bg-slate-800/60">
+                <div class="flex items-center gap-2">
+                  <span class="text-slate-500 transition-transform group-open:rotate-90" aria-hidden="true">&#9656;</span>
+                  {{ row.username }}
+                </div>
+                <div>{{ row.total_requests }}</div>
+                <div>{{ "{:,}".format(row.total_tokens) }}</div>
+                <div>{{ "{:,}".format(row.prompt_tokens) }}</div>
+                <div>{{ "{:,}".format(row.completion_tokens) }}</div>
+              </summary>
+              {{ key_rows(row.keys) }}
+            </details>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    {{ category("Services / Agents", "Alias", services, "Key") }}
     {% if unknown %}
-      {{ usage_table("Unknown", "Key", unknown, "label") }}
+      {{ category("Unknown", "Key", unknown, "Key") }}
     {% endif %}
   {% endif %}
 </section>

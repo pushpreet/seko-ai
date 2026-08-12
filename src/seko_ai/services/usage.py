@@ -22,8 +22,34 @@ USAGE_WINDOW_DAYS = 30
 
 
 @dataclass(frozen=True)
+class LabeledUsage:
+    """Aggregated usage with a display label and optional model children."""
+
+    label: str
+    total_tokens: int
+    total_requests: int
+    prompt_tokens: int
+    completion_tokens: int
+    models: tuple[LabeledUsage, ...] = ()
+
+
+@dataclass(frozen=True)
+class KeyUsage:
+    """Usage for one logical user key, potentially spanning rotated tokens."""
+
+    label: str
+    masked_key: str | None
+    active: bool
+    total_tokens: int
+    total_requests: int
+    prompt_tokens: int
+    completion_tokens: int
+    models: tuple[LabeledUsage, ...] = ()
+
+
+@dataclass(frozen=True)
 class UsageSummary:
-    """Aggregated usage for a user, summed over that user's LiteLLM keys."""
+    """Aggregated usage for a user, summed over that user's logical keys."""
 
     username: str
     total_tokens: int
@@ -31,17 +57,7 @@ class UsageSummary:
     prompt_tokens: int
     completion_tokens: int
     available: bool = True
-
-
-@dataclass(frozen=True)
-class LabeledUsage:
-    """Aggregated usage for a non-user bucket shown with a display label."""
-
-    label: str
-    total_tokens: int
-    total_requests: int
-    prompt_tokens: int
-    completion_tokens: int
+    keys: tuple[KeyUsage, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -66,9 +82,31 @@ class UsageAttribution:
     """Raw per-key attribution totals before dashboard summary rows are built."""
 
     users: dict[int, _Totals]
+    user_keys: dict[int, dict[str, _Totals]]
+    user_key_models: dict[int, dict[str, dict[str, _Totals]]]
     services: dict[str, _Totals]
+    service_models: dict[str, dict[str, _Totals]]
     unknown: dict[str, _Totals]
+    unknown_models: dict[str, dict[str, _Totals]]
     unknown_labels: dict[str, str]
+
+
+@dataclass(frozen=True)
+class _OwnedKey:
+    """Attribution target for one physical LiteLLM token."""
+
+    user_id: int
+    bucket_id: str
+    visible: bool
+
+
+@dataclass
+class _KeyDescriptor:
+    """Display metadata collected across a logical key's physical tokens."""
+
+    label: str
+    masked_key: str | None
+    active: bool
 
 
 def _num(value: Any) -> int:
@@ -78,16 +116,43 @@ def _num(value: Any) -> int:
         return 0
 
 
-def _key_index(api_keys: Iterable[ApiKey]) -> tuple[dict[str, int], dict[str, int]]:
-    """Map LiteLLM token -> user_id and key_alias -> user_id from local key rows."""
-    by_token: dict[str, int] = {}
-    by_alias: dict[str, int] = {}
+def _key_index(
+    api_keys: Iterable[ApiKey],
+) -> tuple[
+    dict[str, _OwnedKey],
+    dict[str, _OwnedKey],
+    dict[int, dict[str, _KeyDescriptor]],
+]:
+    """Index physical tokens/aliases and collect logical-key display metadata."""
+    by_token: dict[str, _OwnedKey] = {}
+    by_alias: dict[str, _OwnedKey] = {}
+    descriptors: dict[int, dict[str, _KeyDescriptor]] = defaultdict(dict)
     for key in api_keys:
+        visible = key.workspace_id is None
+        if key.identity is not None:
+            bucket_id = f"identity:{key.identity.id}"
+            label = key.identity.name
+        else:
+            bucket_id = f"token:{key.litellm_key_id or key.key_alias}"
+            label = key.key_alias or _masked_token(key.litellm_key_id)
+        owner = _OwnedKey(user_id=key.user_id, bucket_id=bucket_id, visible=visible)
         if key.litellm_key_id:
-            by_token[key.litellm_key_id] = key.user_id
+            by_token[key.litellm_key_id] = owner
         if key.key_alias:
-            by_alias[key.key_alias] = key.user_id
-    return by_token, by_alias
+            by_alias[key.key_alias] = owner
+        if not visible:
+            continue
+        current = descriptors[key.user_id].get(bucket_id)
+        if current is None:
+            descriptors[key.user_id][bucket_id] = _KeyDescriptor(
+                label=label,
+                masked_key=key.masked_key,
+                active=key.active,
+            )
+        elif key.active:
+            current.active = True
+            current.masked_key = key.masked_key
+    return by_token, by_alias, dict(descriptors)
 
 
 def _key_alias(entry: dict[str, Any]) -> str | None:
@@ -118,21 +183,32 @@ def _add_metrics(bucket: _Totals, metrics: dict[str, Any]) -> None:
     bucket.completion_tokens += _num(metrics.get("completion_tokens"))
 
 
-def _labeled_usage(label: str, totals: _Totals) -> LabeledUsage:
+def _labeled_usage(
+    label: str,
+    totals: _Totals,
+    models: tuple[LabeledUsage, ...] = (),
+) -> LabeledUsage:
     return LabeledUsage(
         label=label,
         total_tokens=totals.total_tokens,
         total_requests=totals.total_requests,
         prompt_tokens=totals.prompt_tokens,
         completion_tokens=totals.completion_tokens,
+        models=models,
     )
 
 
 def _sorted_labeled(
-    totals: dict[str, _Totals], labels: dict[str, str] | None = None
+    totals: dict[str, _Totals],
+    labels: dict[str, str] | None = None,
+    model_totals: dict[str, dict[str, _Totals]] | None = None,
 ) -> list[LabeledUsage]:
     rows = [
-        _labeled_usage((labels or {}).get(identifier, identifier), total)
+        _labeled_usage(
+            (labels or {}).get(identifier, identifier),
+            total,
+            tuple(_sorted_labeled((model_totals or {}).get(identifier, {}))),
+        )
         for identifier, total in totals.items()
     ]
     return sorted(rows, key=lambda row: (-row.total_tokens, -row.completion_tokens, row.label))
@@ -148,8 +224,8 @@ def order_user_summaries(summaries: Iterable[UsageSummary]) -> list[UsageSummary
 
 def attribute(
     rows: Iterable[dict[str, Any]],
-    by_token: dict[str, int],
-    by_alias: dict[str, int],
+    by_token: dict[str, _OwnedKey],
+    by_alias: dict[str, _OwnedKey],
     *,
     service_prefixes: Sequence[str] = (),
 ) -> UsageAttribution:
@@ -160,42 +236,131 @@ def attribute(
     become visible unknown rows instead of being silently dropped.
     """
     users: dict[int, _Totals] = defaultdict(_Totals)
+    user_keys: dict[int, dict[str, _Totals]] = defaultdict(lambda: defaultdict(_Totals))
+    user_key_models: dict[int, dict[str, dict[str, _Totals]]] = defaultdict(
+        lambda: defaultdict(lambda: defaultdict(_Totals))
+    )
     services: dict[str, _Totals] = defaultdict(_Totals)
+    service_models: dict[str, dict[str, _Totals]] = defaultdict(lambda: defaultdict(_Totals))
     unknown: dict[str, _Totals] = defaultdict(_Totals)
+    unknown_models: dict[str, dict[str, _Totals]] = defaultdict(lambda: defaultdict(_Totals))
     unknown_labels: dict[str, str] = {}
     prefixes = _service_prefixes(service_prefixes)
+
+    def classify(token: Any, entry: dict[str, Any]) -> tuple[str, _OwnedKey | str]:
+        alias = _key_alias(entry)
+        token_text = _token_text(token)
+        owner = by_token.get(token_text)
+        if owner is None and alias is not None:
+            owner = by_alias.get(alias)
+        if owner is not None:
+            return "user", owner
+        if alias is not None and any(alias.startswith(prefix) for prefix in prefixes):
+            return "service", alias
+        identifier = alias if alias is not None else token_text
+        unknown_labels.setdefault(
+            identifier,
+            alias if alias is not None else _masked_token(token_text),
+        )
+        return "unknown", identifier
+
     for row in rows:
         breakdown = (row.get("breakdown") or {}).get("api_keys") or {}
         for token, entry in breakdown.items():
             entry = entry or {}
             metrics = entry.get("metrics") or {}
-            alias = _key_alias(entry)
-            token_text = _token_text(token)
-            uid = by_token.get(token_text)
-            if uid is None and alias is not None:
-                uid = by_alias.get(alias)
-            if uid is not None:
-                _add_metrics(users[uid], metrics)
+            kind, target = classify(token, entry)
+            if kind == "user":
+                owner = target
+                assert isinstance(owner, _OwnedKey)
+                _add_metrics(users[owner.user_id], metrics)
+                if owner.visible:
+                    _add_metrics(user_keys[owner.user_id][owner.bucket_id], metrics)
                 continue
-
-            if alias is not None and any(alias.startswith(prefix) for prefix in prefixes):
-                _add_metrics(services[alias], metrics)
+            identifier = target
+            assert isinstance(identifier, str)
+            if kind == "service":
+                _add_metrics(services[identifier], metrics)
                 continue
-
-            identifier = alias if alias is not None else token_text
-            label = alias if alias is not None else _masked_token(token_text)
-            unknown_labels.setdefault(identifier, label)
             _add_metrics(unknown[identifier], metrics)
+
+        models = (row.get("breakdown") or {}).get("models") or {}
+        for model, model_entry in models.items():
+            key_breakdown = (model_entry or {}).get("api_key_breakdown") or {}
+            for token, entry in key_breakdown.items():
+                entry = entry or {}
+                metrics = entry.get("metrics") or {}
+                kind, target = classify(token, entry)
+                if kind == "user":
+                    owner = target
+                    assert isinstance(owner, _OwnedKey)
+                    if owner.visible:
+                        _add_metrics(
+                            user_key_models[owner.user_id][owner.bucket_id][str(model)],
+                            metrics,
+                        )
+                    continue
+                identifier = target
+                assert isinstance(identifier, str)
+                if kind == "service":
+                    _add_metrics(service_models[identifier][str(model)], metrics)
+                    continue
+                _add_metrics(unknown_models[identifier][str(model)], metrics)
     return UsageAttribution(
         users=dict(users),
+        user_keys={uid: dict(totals) for uid, totals in user_keys.items()},
+        user_key_models={
+            uid: {bucket: dict(models) for bucket, models in buckets.items()}
+            for uid, buckets in user_key_models.items()
+        },
         services=dict(services),
+        service_models={key: dict(models) for key, models in service_models.items()},
         unknown=dict(unknown),
+        unknown_models={key: dict(models) for key, models in unknown_models.items()},
         unknown_labels=unknown_labels,
     )
 
 
-def _summary(user: User, totals: _Totals | None, *, available: bool = True) -> UsageSummary:
+def _key_usage(
+    descriptor: _KeyDescriptor,
+    totals: _Totals,
+    models: dict[str, _Totals],
+) -> KeyUsage:
+    return KeyUsage(
+        label=descriptor.label,
+        masked_key=descriptor.masked_key,
+        active=descriptor.active,
+        total_tokens=totals.total_tokens,
+        total_requests=totals.total_requests,
+        prompt_tokens=totals.prompt_tokens,
+        completion_tokens=totals.completion_tokens,
+        models=tuple(_sorted_labeled(models)),
+    )
+
+
+def _summary(
+    user: User,
+    totals: _Totals | None,
+    *,
+    key_totals: dict[str, _Totals] | None = None,
+    key_models: dict[str, dict[str, _Totals]] | None = None,
+    descriptors: dict[str, _KeyDescriptor] | None = None,
+    available: bool = True,
+) -> UsageSummary:
     t = totals or _Totals()
+    keys: list[KeyUsage] = []
+    for bucket_id, descriptor in (descriptors or {}).items():
+        bucket_totals = (key_totals or {}).get(bucket_id)
+        if bucket_totals is None and not descriptor.active:
+            continue
+        keys.append(
+            _key_usage(
+                descriptor,
+                bucket_totals or _Totals(),
+                (key_models or {}).get(bucket_id, {}),
+            )
+        )
+    keys.sort(key=lambda row: (-row.total_tokens, -row.completion_tokens, row.label.casefold()))
     return UsageSummary(
         username=user.username,
         total_tokens=t.total_tokens,
@@ -203,6 +368,7 @@ def _summary(user: User, totals: _Totals | None, *, available: bool = True) -> U
         prompt_tokens=t.prompt_tokens,
         completion_tokens=t.completion_tokens,
         available=available,
+        keys=tuple(keys),
     )
 
 
@@ -231,10 +397,26 @@ async def collect(
             unknown=[],
         )
 
-    by_token, by_alias = _key_index(api_keys)
+    by_token, by_alias, descriptors = _key_index(api_keys)
     attribution = attribute(rows, by_token, by_alias, service_prefixes=service_prefixes)
     return UsageReport(
-        users={user.id: _summary(user, attribution.users.get(user.id)) for user in users},
-        services=_sorted_labeled(attribution.services),
-        unknown=_sorted_labeled(attribution.unknown, attribution.unknown_labels),
+        users={
+            user.id: _summary(
+                user,
+                attribution.users.get(user.id),
+                key_totals=attribution.user_keys.get(user.id),
+                key_models=attribution.user_key_models.get(user.id),
+                descriptors=descriptors.get(user.id),
+            )
+            for user in users
+        },
+        services=_sorted_labeled(
+            attribution.services,
+            model_totals=attribution.service_models,
+        ),
+        unknown=_sorted_labeled(
+            attribution.unknown,
+            attribution.unknown_labels,
+            attribution.unknown_models,
+        ),
     )

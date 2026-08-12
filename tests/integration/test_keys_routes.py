@@ -59,10 +59,11 @@ def test_create_key_reveals_once_and_lists(
     client: TestClient, fake_litellm: FakeLiteLLMClient
 ) -> None:
     _login(client)
-    resp = client.post("/keys")
+    resp = client.post("/keys", data={"name": "Laptop"})
     assert resp.status_code == 200
     assert "sk-fake-0001" in resp.text  # one-time reveal
     assert "shown once" in resp.text
+    assert "Laptop" in resp.text
     assert len(fake_litellm.generated) == 1
     # Reloading the page must NOT show the plaintext again.
     page = client.get("/keys")
@@ -72,17 +73,18 @@ def test_create_key_reveals_once_and_lists(
 
 def test_rotate_key(client: TestClient, fake_litellm: FakeLiteLLMClient) -> None:
     _login(client)
-    client.post("/keys")
+    client.post("/keys", data={"name": "Laptop"})
     # Find the key id by rendering the page is awkward; rotate id=1 (first key).
     resp = client.post("/keys/1/rotate")
     assert resp.status_code == 200
     assert "sk-fake-0002" in resp.text
+    assert "Laptop" in resp.text
     assert len(fake_litellm.deleted) == 1
 
 
 def test_revoke_key(client: TestClient, fake_litellm: FakeLiteLLMClient) -> None:
     _login(client)
-    client.post("/keys")
+    client.post("/keys", data={"name": "Laptop"})
     resp = client.post("/keys/1/revoke")
     assert resp.status_code == 200
     assert "no active keys" in resp.text
@@ -103,7 +105,7 @@ def test_create_key_litellm_failure_shows_error(client: TestClient) -> None:
         yield fake
 
     client.app.dependency_overrides[get_litellm_client] = override  # type: ignore[attr-defined]
-    resp = client.post("/keys")
+    resp = client.post("/keys", data={"name": "Laptop"})
     assert resp.status_code == 502
     assert "Could not create" in resp.text
 
@@ -113,7 +115,7 @@ def test_cannot_rotate_another_users_key(
 ) -> None:
     # alice creates key id 1
     _login(client, groups=["llm_users"])
-    client.post("/keys")
+    client.post("/keys", data={"name": "Laptop"})
     # a different user logs in (same test client/session replaced) and tries to rotate id 1
     provider = client.app.state.oauth.authelia  # type: ignore[attr-defined]
 
@@ -126,3 +128,29 @@ def test_cannot_rotate_another_users_key(
     client.get("/auth/callback?code=abc", follow_redirects=False)
     resp = client.post("/keys/1/rotate")
     assert resp.status_code == 404
+
+
+def test_rename_key_and_reject_duplicate(
+    client: TestClient, fake_litellm: FakeLiteLLMClient
+) -> None:
+    _login(client)
+    client.post("/keys", data={"name": "Laptop"})
+    client.post("/keys", data={"name": "Desktop"})
+
+    renamed = client.post("/keys/1/name", data={"name": "Workstation"})
+    assert renamed.status_code == 200
+    assert "Workstation" in renamed.text
+
+    duplicate = client.post("/keys/1/name", data={"name": " desktop "})
+    assert duplicate.status_code == 422
+    assert "already have" in duplicate.text
+
+
+def test_create_key_requires_unique_name(
+    client: TestClient, fake_litellm: FakeLiteLLMClient
+) -> None:
+    _login(client)
+    assert client.post("/keys", data={"name": "Laptop"}).status_code == 200
+    duplicate = client.post("/keys", data={"name": " laptop "})
+    assert duplicate.status_code == 422
+    assert len(fake_litellm.generated) == 1

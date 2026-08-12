@@ -19,7 +19,10 @@ Tunnel).
 - **Control plane** (this app): FastAPI + HTMX/Tailwind, SQLite, runs on `core-infra`.
 - **Auth**: Authelia OIDC; access gated by the `llm_users` LLDAP group, admins via
   `homelab_admins`.
-- **LLM keys**: per-user virtual keys via a **LiteLLM proxy** in front of vLLM.
+- **LLM keys**: user-named, editable virtual keys via a **LiteLLM proxy** in front of vLLM;
+  names and usage history stay together when a token is rotated.
+- **Usage**: 30-day user totals with collapsible per-key and per-model token/request
+  breakdowns; admins can also inspect service and unattributed keys.
 - **Deprecated (code retained, hidden from the UI)**: hosted **Workspaces** (hardened
   per-user containers on `epyc` over Docker-over-SSH), restic **Backups**, and the
   **self-host kit**. See the deprecation note above.
