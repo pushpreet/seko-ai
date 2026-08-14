@@ -26,9 +26,6 @@ class Settings(BaseSettings):
     base_url: str = "https://seko.pushprh.com"
     session_secret: str = "dev-insecure-change-me"
     database_url: str = "sqlite:///./seko-ai.db"
-    # Master key (base64, 32 bytes) used to wrap per-user data-encryption keys.
-    master_key: str = ""
-
     # --- Authelia OIDC (existing homelab IdP) ---
     oidc_issuer: str = "https://auth.pushprh.com"
     oidc_client_id: str = "seko-ai"
@@ -49,7 +46,7 @@ class Settings(BaseSettings):
             "SEKO_SERVICE_USAGE_ALIASES",
         ),
     )
-    # Public endpoint handed to users/workspaces for their key.
+    # Public endpoint handed to users for their key.
     llm_public_url: str = "https://llm.pushprh.com/v1"
     llm_model: str = "qwen3.6-27b"
     # Local embeddings model (stacks/vllm-embed, served-model-name) exposed through the same
@@ -66,25 +63,6 @@ class Settings(BaseSettings):
     # manage-scoped Qdrant would let any key holder read every other user's indexed source
     # chunks or drop their collections, and Qdrant's collection-scoped JWTs cannot create
     # collections (which Zoo Code does automatically), so per-user scoping is not possible.
-
-    # --- Workspace orchestration (Docker-over-SSH to epyc) ---
-    docker_host: str = "ssh://pushprh@10.37.20.50"
-    workspace_image: str = "ghcr.io/pushpreet/seko-workspace:latest"
-    workspace_data_root: str = "/opt/appdata/seko-ai/workspaces"
-    workspace_ssh_port_min: int = 22000
-    workspace_ssh_port_max: int = 22099
-    workspace_ssh_host: str = "epyc.pushprh.com"
-
-    # --- Quotas & lifecycle (admin-configurable defaults) ---
-    max_workspaces_per_user: int = 5
-    workspace_cpus: float = 8.0
-    workspace_mem: str = "16g"
-    workspace_pids_limit: int = 512
-    workspace_idle_stop_hours: float = 8.0
-
-    # --- Backups (restic -> NAS, reuses homelab pattern) ---
-    restic_repository: str = ""
-    restic_password: str = ""
 
     # --- Service status monitoring + user notifications ---
     # The `check-status` management command probes the API-key path (LiteLLM -> vLLM) and,

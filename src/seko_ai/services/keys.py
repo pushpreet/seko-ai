@@ -103,13 +103,12 @@ def litellm_user_id(user: User) -> str:
 
 
 def list_user_keys(session: Session, user_id: int) -> list[ApiKey]:
-    """Return a user's own (non-workspace) active API keys, newest first."""
+    """Return a user's active API keys, newest first."""
     stmt = (
         select(ApiKey)
         .where(
             ApiKey.user_id == user_id,
             ApiKey.active.is_(True),
-            ApiKey.workspace_id.is_(None),
         )
         .order_by(ApiKey.created_at.desc())
     )
@@ -117,11 +116,10 @@ def list_user_keys(session: Session, user_id: int) -> list[ApiKey]:
 
 
 def get_key(session: Session, user_id: int, key_id: int) -> ApiKey | None:
-    """Return a specific user-owned (non-workspace) key, or None."""
+    """Return a specific user-owned key, or None."""
     stmt = select(ApiKey).where(
         ApiKey.id == key_id,
         ApiKey.user_id == user_id,
-        ApiKey.workspace_id.is_(None),
     )
     return session.execute(stmt).scalar_one_or_none()
 
@@ -142,12 +140,10 @@ async def create_key_for_user(
     *,
     name: str | None = None,
     identity: ApiKeyIdentity | None = None,
-    workspace_id: int | None = None,
 ) -> tuple[ApiKey, str]:
     """Mint a LiteLLM virtual key for the user and persist its metadata.
 
     Returns the persisted ``ApiKey`` and the plaintext key value (shown to the user once).
-    Pass ``workspace_id`` for a workspace-scoped key (hidden from the user's /keys list).
     """
     if identity is None and name is not None:
         display, normalized = normalize_name(name)
@@ -189,7 +185,6 @@ async def create_key_for_user(
 
     api_key = ApiKey(
         user_id=user.id,
-        workspace_id=workspace_id,
         identity_id=identity.id if identity is not None else None,
         litellm_key_id=str(result.get("token") or result.get("key_name") or alias),
         key_alias=alias,

@@ -41,6 +41,11 @@ def test_callback_allows_member_and_sets_session(client: TestClient) -> None:
     home = client.get("/")
     assert "alice" in home.text
     assert "Sign in" not in home.text
+    assert 'href="/profile"' not in home.text
+
+
+def test_removed_profile_route_is_not_exposed(client: TestClient) -> None:
+    assert client.get("/profile").status_code == 404
 
 
 def test_callback_denies_non_member(client: TestClient) -> None:
@@ -55,13 +60,11 @@ def test_admin_group_sets_admin(client: TestClient) -> None:
         client, {"sub": "u-3", "preferred_username": "root", "groups": ["homelab_admins"]}
     )
     client.get("/auth/callback?code=abc", follow_redirects=False)
-    profile = client.get("/profile")
-    assert profile.status_code == 200
-    assert "Admin" in profile.text
+    assert client.get("/usage").status_code == 200
 
 
 def test_protected_route_redirects_when_anonymous(client: TestClient) -> None:
-    resp = client.get("/profile", headers={"accept": "text/html"}, follow_redirects=False)
+    resp = client.get("/keys", headers={"accept": "text/html"}, follow_redirects=False)
     assert resp.status_code == 303
     assert resp.headers["location"] == "/auth/login"
 
@@ -97,7 +100,7 @@ def test_callback_rejects_token_without_subject(client: TestClient) -> None:
 
 @pytest.mark.parametrize("accept", ["application/json", ""])
 def test_protected_route_401_for_non_browser(client: TestClient, accept: str) -> None:
-    resp = client.get("/profile", headers={"accept": accept}, follow_redirects=False)
+    resp = client.get("/keys", headers={"accept": accept}, follow_redirects=False)
     assert resp.status_code == 401
 
 

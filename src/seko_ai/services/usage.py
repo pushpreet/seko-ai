@@ -97,7 +97,6 @@ class _OwnedKey:
 
     user_id: int
     bucket_id: str
-    visible: bool
 
 
 @dataclass
@@ -128,20 +127,17 @@ def _key_index(
     by_alias: dict[str, _OwnedKey] = {}
     descriptors: dict[int, dict[str, _KeyDescriptor]] = defaultdict(dict)
     for key in api_keys:
-        visible = key.workspace_id is None
         if key.identity is not None:
             bucket_id = f"identity:{key.identity.id}"
             label = key.identity.name
         else:
             bucket_id = f"token:{key.litellm_key_id or key.key_alias}"
             label = key.key_alias or _masked_token(key.litellm_key_id)
-        owner = _OwnedKey(user_id=key.user_id, bucket_id=bucket_id, visible=visible)
+        owner = _OwnedKey(user_id=key.user_id, bucket_id=bucket_id)
         if key.litellm_key_id:
             by_token[key.litellm_key_id] = owner
         if key.key_alias:
             by_alias[key.key_alias] = owner
-        if not visible:
-            continue
         current = descriptors[key.user_id].get(bucket_id)
         if current is None:
             descriptors[key.user_id][bucket_id] = _KeyDescriptor(
@@ -274,8 +270,7 @@ def attribute(
                 owner = target
                 assert isinstance(owner, _OwnedKey)
                 _add_metrics(users[owner.user_id], metrics)
-                if owner.visible:
-                    _add_metrics(user_keys[owner.user_id][owner.bucket_id], metrics)
+                _add_metrics(user_keys[owner.user_id][owner.bucket_id], metrics)
                 continue
             identifier = target
             assert isinstance(identifier, str)
@@ -294,11 +289,10 @@ def attribute(
                 if kind == "user":
                     owner = target
                     assert isinstance(owner, _OwnedKey)
-                    if owner.visible:
-                        _add_metrics(
-                            user_key_models[owner.user_id][owner.bucket_id][str(model)],
-                            metrics,
-                        )
+                    _add_metrics(
+                        user_key_models[owner.user_id][owner.bucket_id][str(model)],
+                        metrics,
+                    )
                     continue
                 identifier = target
                 assert isinstance(identifier, str)

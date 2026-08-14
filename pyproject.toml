@@ -1,7 +1,7 @@
 [project]
 name = "seko-ai"
-version = "0.6.1"
-description = "Self-service control plane for a shared local LLM backend (vLLM)."
+version = "0.7.0"
+description = "OIDC API-key control plane for a shared LiteLLM-backed local LLM service."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -16,8 +16,6 @@ dependencies = [
     "alembic>=1.14",
     "pydantic>=2.10",
     "pydantic-settings>=2.7",
-    "docker[ssh]>=7.1",
-    "cryptography>=44.0",
     "prometheus-client>=0.21",
     "structlog>=24.4",
 ]
@@ -63,7 +61,7 @@ explicit_package_bases = true
 namespace_packages = true
 
 [[tool.mypy.overrides]]
-module = ["docker.*", "authlib.*"]
+module = ["authlib.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

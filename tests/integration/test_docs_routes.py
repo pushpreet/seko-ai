@@ -27,9 +27,6 @@ def test_docs_renders_direct_api(client: TestClient) -> None:
     resp = client.get("/docs")
     assert resp.status_code == 200
     assert "Direct API integration" in resp.text
-    # The deprecated workspace/self-host sections are gone from the website.
-    assert "Local workspaces" not in resp.text
-    assert "Remote workspaces" not in resp.text
 
 
 def test_docs_includes_live_endpoint_values(client: TestClient) -> None:

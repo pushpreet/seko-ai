@@ -52,7 +52,7 @@
             <a href="/usage" class="hover:text-sky-400">Usage</a>
             <a href="/status" class="hover:text-sky-400">Status</a>
             <a href="/docs" class="hover:text-sky-400">Docs</a>
-            <a href="/profile" class="text-slate-400 hover:text-sky-400">{{ user.display_name or user.username }}</a>
+            <span class="text-slate-400">{{ user.display_name or user.username }}</span>
             <a href="/auth/logout" class="rounded bg-slate-800 px-3 py-1 hover:bg-slate-700">Sign out</a>
           {% else %}
             <a href="/status" class="hover:text-sky-400">Status</a>

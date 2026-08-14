@@ -274,27 +274,6 @@ async def test_collect_groups_rotations_and_models_under_named_key() -> None:
     ]
 
 
-async def test_collect_includes_workspace_usage_only_in_user_total() -> None:
-    class Fake:
-        async def daily_activity(self, *, start_date: str, end_date: str, page_size: int = 1000):
-            return [
-                _day(
-                    ("tok-user", "seko-alice-user", _metrics(100, 2, 70, 30)),
-                    ("tok-workspace", "seko-alice-workspace", _metrics(50, 1, 35, 15)),
-                )
-            ]
-
-    user_key = _key(1, token="tok-user", alias="seko-alice-user")
-    workspace_key = _key(1, token="tok-workspace", alias="seko-alice-workspace")
-    workspace_key.workspace_id = 7
-
-    report = await us.collect(Fake(), [_user(1, "alice")], [user_key, workspace_key])
-
-    assert report.users[1].total_tokens == 150
-    assert [key.label for key in report.users[1].keys] == ["seko-alice-user"]
-    assert report.unknown == []
-
-
 def test_attribute_adds_models_to_service_and_unknown_keys() -> None:
     row = _day(
         ("svc", "hermes-pk", _metrics(40, 2, 30, 10)),
@@ -404,10 +383,8 @@ async def test_collect_orders_service_rows_by_total_tokens_desc() -> None:
 def test_metrics_endpoint_exposes_series(client: TestClient) -> None:
     body = client.get("/metrics").text
     for name in [
-        "seko_workspaces_active",
         "seko_users_total",
         "seko_logins_total",
         "seko_keys_issued_total",
-        "seko_backups_total",
     ]:
         assert name in body

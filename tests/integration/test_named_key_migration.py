@@ -61,7 +61,7 @@ def test_named_key_migration_backfills_and_downgrades(
             ],
         )
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "f3a8c1d2e4b6")
 
     with sqlite3.connect(database) as conn:
         identities = conn.execute(

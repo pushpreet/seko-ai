@@ -16,9 +16,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 FROM python:3.12-slim-bookworm AS runtime
 
-# openssh-client is needed for the Docker-over-SSH connection to epyc.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends openssh-client ca-certificates \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd --create-home --uid 1000 seko

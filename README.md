@@ -1,75 +1,66 @@
 # seko-ai
 
-Self-service control plane for a shared local LLM backend (vLLM). Lets a small group of
-trusted users manage their LLM API key and point their own harness/editor at the shared
-model — all behind Authelia SSO.
+Self-service API-key control plane for a shared local LLM service. A small group of trusted
+users signs in through Authelia, manages named LiteLLM virtual keys, reviews usage, reads
+client guidance, and sees current service status.
 
-> **Deprecation note (v0.3.0):** the hosted **Workspaces**, workspace **Backups**, and the
-> **self-host Docker kit** are no longer exposed on the website (their routes return 404).
-> There was no user demand — everyone uses the direct API route with their own harness. The
-> code (routers, services, models, migrations, templates) is retained in the repo for now,
-> just unwired from the app; re-mounting the routers in `app.py` brings them back.
-> Before that retained code is removed, operators can inventory and retire its production
-> resources with the management command documented below.
+## What it provides
 
-Designed to integrate with the [`psx-homelab`](../psx-homelab) GitOps setup (Ansible +
-Docker Compose, SOPS secrets, restic→NAS backups, Prometheus/Grafana, Caddy + Cloudflare
-Tunnel).
+- Authelia OIDC sign-in, gated by `llm_users`; `homelab_admins` grants admin views.
+- Named API keys whose display identity and usage history survive token rotation.
+- One-time key reveal plus rotate, rename, and revoke actions.
+- 30-day per-user, per-key, and per-model usage; admins also see service and unattributed
+  keys.
+- OpenAI-compatible chat, embeddings, image, and MCP setup guidance.
+- Persisted availability status, recent incidents, maintenance windows, Resend
+  notifications, and Prometheus metrics.
 
-## Architecture (summary)
-
-- **Control plane** (this app): FastAPI + HTMX/Tailwind, SQLite, runs on `core-infra`.
-- **Auth**: Authelia OIDC; access gated by the `llm_users` LLDAP group, admins via
-  `homelab_admins`.
-- **LLM keys**: user-named, editable virtual keys via a **LiteLLM proxy** in front of vLLM;
-  names and usage history stay together when a token is rotated.
-- **Usage**: 30-day user totals with collapsible per-key and per-model token/request
-  breakdowns; admins can also inspect service and unattributed keys.
-- **Deprecated (code retained, hidden from the UI)**: hosted **Workspaces** (hardened
-  per-user containers on `epyc` over Docker-over-SSH), restic **Backups**, and the
-  **self-host kit**. See the deprecation note above.
-
-See the implementation plan for the full design.
+The application is FastAPI with server-rendered Jinja/HTMX pages, SQLAlchemy/Alembic, and
+SQLite. LiteLLM is the only managed backend.
 
 ## Development
 
 Requires Python 3.12+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync                 # create .venv and install deps (incl. dev group)
-cp .env.example .env     # fill in secrets for local dev
-uv run seko-ai           # run the dev server on :8080
+uv sync
+cp .env.example .env
+uv run seko-ai
 
-uv run ruff check .      # lint
-uv run mypy src          # type-check
-uv run pytest            # tests
-uv run pytest --cov      # tests with coverage
+./tasks.sh lint
+./tasks.sh typecheck
+./tasks.sh test
+./tasks.sh cov
+./tasks.sh check
 ```
 
-Or use the task runner:
+`./tasks.sh check` runs Ruff, strict mypy, and the coverage-enabled pytest suite. Alembic
+migrations use SQLite batch mode; run them locally with `./tasks.sh migrate`.
+
+## Operations
+
+The container entrypoint applies `alembic upgrade head` before starting Uvicorn.
 
 ```bash
-./tasks.sh install | lint | typecheck | test | cov | run
+python -m seko_ai.management check-status
+python -m seko_ai.management maintenance start --message "planned work"
+python -m seko_ai.management maintenance status
+python -m seko_ai.management maintenance end
 ```
+
+`check-status` is intended for the host timer. Maintenance suppresses transition alerts and
+can send start/end notices according to configuration.
 
 ## Manual release
 
-There is no CI release workflow. `./publish.sh` is the only supported control-plane image
-release path. First run `docker login ghcr.io`; the script then reads the version from
-`pyproject.toml`, requires a clean worktree and unused version tag, runs `./tasks.sh check`,
-builds with OCI source/revision/version labels, and pushes only
-`ghcr.io/pushpreet/seko-ai:<version>`. It prints the resulting immutable `tag@digest`.
+There is no CI release workflow. `./publish.sh` is the sole supported image release path:
 
-## Intermediate workspace retirement
+1. Set the version in `pyproject.toml`.
+2. Authenticate with `docker login ghcr.io`.
+3. Commit the release so the worktree is clean.
+4. Run `./publish.sh`.
 
-The deprecated workspace implementation is intentionally retained in this release so it can
-clean existing production resources before final removal. The command defaults to a
-secret-free dry run:
-
-```bash
-python -m seko_ai.management retire-workspaces
-```
-
-After reviewing the inventory, run the destructive cleanup only with the exact confirmation
-printed by the dry run. Failures are surfaced and leave database metadata available for a
-safe rerun. Normal user API keys and service-status history are preserved.
+The script rejects arguments, dirty worktrees, invalid versions, missing GHCR auth, and
+existing version tags. It runs `./tasks.sh check`, builds only from the restrictive
+`.dockerignore` context, applies OCI source/revision/version labels, pushes
+`ghcr.io/pushpreet/seko-ai:<version>`, and prints the immutable digest.
