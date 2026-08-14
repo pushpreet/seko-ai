@@ -67,14 +67,16 @@ Docker/SSH/gocryptfs/restic I/O is `# pragma: no cover` and validated on epyc by
 Routers are thin. Errors that update HTMX panels return 4xx/422 **and still render** (see
 HTMX gotcha below).
 
-## Deployment (no CI — manual, via psx-homelab)
+## Release and deployment (no CI)
 
-Images are **built on the hosts** (local Docker often unavailable; GHCR push needs the
-user's creds): rsync repo → host → `docker build -t ghcr.io/pushpreet/seko-ai:0.1.0` →
-`docker compose up -d --force-recreate`. seko-ai stack + secrets live in psx-homelab
-(`stacks/seko-ai`, `secrets/seko-ai.env.sops`, `secrets/litellm.env.sops`). Deploy stacks
-with `ansible-playbook site.yml --limit <core|llm> --tags stacks` (skips heavy roles).
-The seko-ai container self-migrates on start.
+`./publish.sh` is the sole manual control-plane image release path; there are no GitHub
+Actions workflows. It requires prior `docker login ghcr.io`, derives the version only from
+`pyproject.toml`, checks the worktree/tag/tests, and pushes only the immutable version tag.
+Deployment remains manual through psx-homelab. The seko-ai container self-migrates on start.
+
+The deprecated workspace code remains present for the intermediate retirement release.
+`python -m seko_ai.management retire-workspaces` is a dry run unless given the exact
+confirmation it prints; keep this cleanup path intact until production retirement completes.
 
 ## Critical gotchas (hard-won — do not regress)
 
@@ -106,6 +108,8 @@ The seko-ai container self-migrates on start.
 11. **docker[ssh] extra (paramiko)** is required for `DOCKER_HOST=ssh://` even with
     `use_ssh_client=True`.
 12. Alembic on SQLite uses **batch mode** — every constraint needs an explicit name.
+13. Workspace retirement must remain dry-run by default, reject unsafe data roots/paths,
+    surface cleanup failures, and preserve normal API keys plus all service-status data.
 
 ## Live deployment state (as of last session)
 

@@ -64,6 +64,16 @@ class ContainerInfo:
     name: str
     status: str  # e.g. running, exited, created
     ssh_port: int | None = None
+    owner_id: str | None = None
+    home_path: str | None = None
+
+
+@dataclass(frozen=True)
+class SnapshotInfo:
+    """Backend-reported restic snapshot metadata used for retirement discovery."""
+
+    snapshot_id: str
+    tags: tuple[str, ...] = ()
 
 
 @runtime_checkable
@@ -87,6 +97,15 @@ class ContainerBackend(Protocol):
 
     def get(self, name: str) -> ContainerInfo | None: ...
 
+    def list_managed_containers(self) -> list[ContainerInfo]:
+        """Return every container carrying the seko managed-workspace label."""
+
+    def list_workspace_paths(self, workspace_root: str) -> list[str]:
+        """Return exact managed workspace directories found beneath the configured root."""
+
+    def stop_remove_container(self, name: str) -> None:
+        """Stop and remove a container, treating an already-absent container as success."""
+
     def backup_volume(self, cipher_path: str, tags: list[str]) -> BackupResult:
         """Snapshot the ciphertext volume with restic; returns the snapshot id + size."""
 
@@ -95,6 +114,12 @@ class ContainerBackend(Protocol):
 
     def forget_snapshot(self, snapshot_id: str) -> None:
         """Remove a restic snapshot from the repository (restic forget --prune)."""
+
+    def list_snapshots(self) -> list[SnapshotInfo]:
+        """Return restic snapshots so workspace-tagged and DB-known resources are found."""
+
+    def delete_workspace_path(self, workspace_root: str, path: str) -> None:
+        """Delete one validated workspace path, treating an already-absent path as success."""
 
 
 @dataclass(frozen=True)

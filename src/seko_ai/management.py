@@ -1,8 +1,9 @@
-"""Scheduled maintenance: nightly backups and idle-workspace auto-stop.
+"""Scheduled maintenance, status checks, and workspace retirement.
 
 Invoked from the host via systemd timers (see the homelab deployment), e.g.:
     python -m seko_ai.management nightly-backups
     python -m seko_ai.management reap-idle
+    python -m seko_ai.management retire-workspaces
 """
 
 from __future__ import annotations
@@ -116,18 +117,46 @@ def maintenance(session: Session, settings: Settings, action: str, message: str 
     return active
 
 
+def _retirement_execute(args: list[str]) -> bool:
+    """Parse the retirement confirmation without accepting ambiguous extra arguments."""
+    from seko_ai.services.retirement import CONFIRMATION, RetirementError
+
+    if len(args) == 1:
+        return False
+    if len(args) == 3 and args[1] == "--confirm":
+        if args[2] != CONFIRMATION:
+            raise RetirementError(
+                f"confirmation mismatch; expected exactly: --confirm {CONFIRMATION}"
+            )
+        return True
+    raise RetirementError(
+        f"usage: python -m seko_ai.management retire-workspaces "
+        f"[--confirm {CONFIRMATION}]"
+    )
+
+
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI wiring
+    import asyncio
     import sys
 
     from seko_ai.db import session_scope
+    from seko_ai.services.litellm_client import LiteLLMClient
+    from seko_ai.services.retirement import RetirementError, retire_workspaces
 
     args = argv if argv is not None else sys.argv[1:]
-    commands = {"nightly-backups", "reap-idle", "check-status", "maintenance"}
+    commands = {
+        "nightly-backups",
+        "reap-idle",
+        "check-status",
+        "maintenance",
+        "retire-workspaces",
+    }
     if not args or args[0] not in commands:
         print(
             "usage: python -m seko_ai.management "
             "[nightly-backups|reap-idle|check-status|"
-            "maintenance <start|end|status> [--message TEXT]]"
+            "maintenance <start|end|status> [--message TEXT]|"
+            "retire-workspaces [--confirm RETIRE-ALL-WORKSPACES-PERMANENTLY]]"
         )
         return 2
     settings = get_settings()
@@ -155,6 +184,28 @@ def main(argv: list[str] | None = None) -> int:  # pragma: no cover - CLI wiring
         return 0
 
     backend = _build_backend(settings)
+    if command == "retire-workspaces":
+        try:
+            execute = _retirement_execute(args)
+            with session_scope() as session:
+                async def _run_retirement() -> str:
+                    async with LiteLLMClient.from_settings(settings) as litellm:
+                        inventory = await retire_workspaces(
+                            session,
+                            settings,
+                            backend,
+                            litellm,
+                            execute=execute,
+                        )
+                    return inventory.render(execute=execute)
+
+                report = asyncio.run(_run_retirement())
+            print(report)
+            return 0
+        except RetirementError as exc:
+            print(f"workspace retirement failed: {exc}", file=sys.stderr)
+            return 1
+
     with session_scope() as session:
         if command == "nightly-backups":
             nightly_backups(session, backend)

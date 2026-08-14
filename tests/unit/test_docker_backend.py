@@ -2,9 +2,24 @@
 
 from __future__ import annotations
 
+import json
+import os
+import shutil
+import subprocess
+import sys
+import uuid
+from pathlib import Path
+
 import pytest
 
-from seko_ai.services.docker_backend import build_run_kwargs, parse_ssh_target
+from seko_ai.services.docker_backend import (
+    _DELETE_PATH_SCRIPT,
+    build_run_kwargs,
+    parse_ssh_target,
+    parse_workspace_path_discovery,
+    validate_canonical_delete_target,
+)
+from seko_ai.services.retirement import RetirementError
 from seko_ai.services.workspaces import WorkspaceSpec
 
 
@@ -62,3 +77,185 @@ def test_build_run_kwargs_hardening_and_env() -> None:
         }
     }
     assert kwargs["restart_policy"] == {"Name": "unless-stopped"}
+
+
+def test_workspace_path_discovery_accepts_only_exact_directories() -> None:
+    root = "/opt/appdata/seko-ai/workspaces"
+    raw = json.dumps(
+        [
+            {
+                "user_id": "42",
+                "container_name": "seko-ws-42-orphan",
+                "path": f"{root}/42/seko-ws-42-orphan",
+                "workspace_symlink": False,
+                "workspace_directory": True,
+            },
+            {
+                "user_id": "42",
+                "container_name": "seko-ws-42-file",
+                "path": f"{root}/42/seko-ws-42-file",
+                "workspace_symlink": False,
+                "workspace_directory": False,
+            },
+        ]
+    )
+    assert parse_workspace_path_discovery(raw, root) == [
+        f"{root}/42/seko-ws-42-orphan"
+    ]
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"user_id": "42", "user_symlink": True},
+        {
+            "user_id": "42",
+            "container_name": "seko-ws-42-link",
+            "path": "/opt/appdata/seko-ai/workspaces/42/seko-ws-42-link",
+            "workspace_symlink": True,
+            "workspace_directory": False,
+        },
+    ],
+)
+def test_workspace_path_discovery_rejects_symlink_components(
+    record: dict[str, object],
+) -> None:
+    with pytest.raises(RetirementError, match="symlinked"):
+        parse_workspace_path_discovery(
+            json.dumps([record]),
+            "/opt/appdata/seko-ai/workspaces",
+        )
+
+
+def test_workspace_path_discovery_rejects_symlinked_root() -> None:
+    root = "/opt/appdata/seko-ai/workspaces"
+    with pytest.raises(RetirementError, match="symlinked workspace root"):
+        parse_workspace_path_discovery(
+            json.dumps([{"root_symlink": True, "path": root}]),
+            root,
+        )
+
+
+def test_canonical_delete_target_requires_exact_identity() -> None:
+    target = validate_canonical_delete_target(
+        canonical_root="/srv/workspaces",
+        canonical_target="/srv/workspaces/42/seko-ws-42-safe",
+        user_id="42",
+        container_name="seko-ws-42-safe",
+        root_symlink=False,
+        user_symlink=False,
+        target_symlink=False,
+    )
+    assert target == "/srv/workspaces/42/seko-ws-42-safe"
+
+    with pytest.raises(ValueError, match="mismatch"):
+        validate_canonical_delete_target(
+            canonical_root="/srv/workspaces",
+            canonical_target="/srv/workspaces-other/42/seko-ws-42-safe",
+            user_id="42",
+            container_name="seko-ws-42-safe",
+            root_symlink=False,
+            user_symlink=False,
+            target_symlink=False,
+        )
+
+    with pytest.raises(RetirementError, match="workspace_data_root"):
+        validate_canonical_delete_target(
+            canonical_root="/opt",
+            canonical_target="/opt/42/seko-ws-42-safe",
+            user_id="42",
+            container_name="seko-ws-42-safe",
+            root_symlink=False,
+            user_symlink=False,
+            target_symlink=False,
+        )
+
+
+@pytest.mark.parametrize(("user_symlink", "target_symlink"), [(True, False), (False, True)])
+def test_canonical_delete_target_rejects_symlink_components(
+    user_symlink: bool, target_symlink: bool
+) -> None:
+    with pytest.raises(ValueError, match="symlinked"):
+        validate_canonical_delete_target(
+            canonical_root="/srv/workspaces",
+            canonical_target="/srv/workspaces/42/seko-ws-42-safe",
+            user_id="42",
+            container_name="seko-ws-42-safe",
+            root_symlink=False,
+            user_symlink=user_symlink,
+            target_symlink=target_symlink,
+        )
+
+
+def test_canonical_delete_target_rejects_symlinked_root() -> None:
+    with pytest.raises(ValueError, match="symlinked workspace root"):
+        validate_canonical_delete_target(
+            canonical_root="/srv/workspaces",
+            canonical_target="/srv/workspaces/42/seko-ws-42-safe",
+            user_id="42",
+            container_name="seko-ws-42-safe",
+            root_symlink=True,
+            user_symlink=False,
+            target_symlink=False,
+        )
+
+
+def test_non_following_delete_unlinks_nested_symlinks() -> None:
+    scratch = Path.cwd() / f".test-retirement-delete-{uuid.uuid4().hex}"
+    target = scratch / "root" / "42" / "seko-ws-42-safe"
+    outside = scratch / "outside"
+    try:
+        target.mkdir(parents=True)
+        outside.mkdir(parents=True)
+        marker = outside / "must-survive"
+        marker.write_text("safe")
+        os.symlink(outside, target / "nested-link")
+
+        subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                _DELETE_PATH_SCRIPT,
+                str(scratch / "root"),
+                "42",
+                "seko-ws-42-safe",
+            ],
+            check=True,
+        )
+
+        assert not target.exists()
+        assert marker.read_text() == "safe"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
+
+
+def test_non_following_delete_rejects_symlinked_target() -> None:
+    scratch = Path.cwd() / f".test-retirement-symlink-{uuid.uuid4().hex}"
+    user_path = scratch / "root" / "42"
+    outside = scratch / "outside"
+    try:
+        user_path.mkdir(parents=True)
+        outside.mkdir(parents=True)
+        marker = outside / "must-survive"
+        marker.write_text("safe")
+        os.symlink(outside, user_path / "seko-ws-42-link")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                _DELETE_PATH_SCRIPT,
+                str(scratch / "root"),
+                "42",
+                "seko-ws-42-link",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        assert result.returncode != 0
+        assert "refusing symlinked workspace target" in result.stderr
+        assert marker.read_text() == "safe"
+    finally:
+        shutil.rmtree(scratch, ignore_errors=True)
