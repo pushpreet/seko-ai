@@ -14,8 +14,8 @@ import pytest
 
 from seko_ai.services.docker_backend import (
     _DELETE_PATH_SCRIPT,
-    build_teardown_home_command,
     build_run_kwargs,
+    build_teardown_home_command,
     parse_ssh_target,
     parse_workspace_path_discovery,
     validate_canonical_delete_target,
