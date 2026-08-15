@@ -14,6 +14,7 @@ import pytest
 
 from seko_ai.services.docker_backend import (
     _DELETE_PATH_SCRIPT,
+    build_teardown_home_command,
     build_run_kwargs,
     parse_ssh_target,
     parse_workspace_path_discovery,
@@ -77,6 +78,18 @@ def test_build_run_kwargs_hardening_and_env() -> None:
         }
     }
     assert kwargs["restart_policy"] == {"Name": "unless-stopped"}
+
+
+def test_teardown_home_is_idempotent_for_unmounted_and_missing_paths(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "workspace"
+    (home / "cleartext").mkdir(parents=True)
+    command = build_teardown_home_command(str(home))
+
+    subprocess.run(["sh", "-c", command], check=True)
+    shutil.rmtree(home)
+    subprocess.run(["sh", "-c", command], check=True)
 
 
 def test_workspace_path_discovery_accepts_only_exact_directories() -> None:

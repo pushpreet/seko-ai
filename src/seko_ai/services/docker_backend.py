@@ -30,6 +30,19 @@ from seko_ai.services.workspaces import (
 
 log = get_logger("seko_ai.docker_backend")
 
+
+def build_teardown_home_command(home_path: str) -> str:
+    """Build an idempotent unmount command for an encrypted workspace home."""
+    clear = f"{home_path}/cleartext"
+    quoted_clear = shlex.quote(clear)
+    return (
+        f"mountpoint -q {quoted_clear}; status=$?; "
+        f"if test \"$status\" -eq 0; then fusermount -u {quoted_clear}; "
+        f"elif test \"$status\" -ne 1 && test \"$status\" -ne 32; "
+        f"then exit \"$status\"; fi"
+    )
+
+
 _DISCOVER_PATHS_SCRIPT = r"""
 import json
 import os
@@ -339,13 +352,7 @@ class DockerBackend:
         self._host_exec(["sh", "-c", mount_if_needed], stdin=passphrase)
 
     def teardown_home(self, home_path: str) -> None:  # pragma: no cover
-        clear = f"{home_path}/cleartext"
-        command = (
-            f"mountpoint -q {shlex.quote(clear)}; status=$?; "
-            f"if test \"$status\" -eq 0; then fusermount -u {shlex.quote(clear)}; "
-            f"elif test \"$status\" -ne 1; then exit \"$status\"; fi"
-        )
-        self._host_exec(["sh", "-c", command])
+        self._host_exec(["sh", "-c", build_teardown_home_command(home_path)])
 
     # --- Container lifecycle ---
 
