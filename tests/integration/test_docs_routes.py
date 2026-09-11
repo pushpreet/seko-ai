@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
+
+from seko_ai.config import Settings
 
 
 def _login(client: TestClient, groups: list[str]) -> None:
@@ -143,3 +146,39 @@ def test_docs_points_qdrant_at_the_users_own_machine(client: TestClient) -> None
     assert "10.37.20.50" not in resp.text
     assert "qdrant_url" not in resp.text
     assert "qdrant_api_key" not in resp.text
+
+
+@pytest.mark.parametrize(
+    ("embeddings", "images"),
+    [(True, True), (True, False), (False, True), (False, False)],
+)
+def test_docs_capability_switches_preserve_chat_and_vision(
+    client: TestClient, settings: Settings, embeddings: bool, images: bool
+) -> None:
+    settings.llm_embedding_enabled = embeddings
+    settings.llm_image_generation_enabled = images
+    settings.llm_embedding_model = "embedding-model-sentinel"
+    settings.llm_image_model = "image-model-sentinel"
+    settings.llm_image_quality_model = "quality-image-model-sentinel"
+    _login(client, ["llm_users"])
+    resp = client.get("/docs")
+    assert resp.status_code == 200
+    assert ('id="codebase-indexing"' in resp.text) is embeddings
+    assert ("/embeddings" in resp.text) is embeddings
+    assert ("embedding-model-sentinel" in resp.text) is embeddings
+    assert ('id="image-generation"' in resp.text) is images
+    assert ("/images/generations" in resp.text) is images
+    assert ("/images/edits" in resp.text) is images
+    assert ("image-image_generate" in resp.text) is images
+    assert ("image-image_edit" in resp.text) is images
+    assert ("image-model-sentinel" in resp.text) is images
+    assert ("quality-image-model-sentinel" in resp.text) is images
+    assert ("playground/images" in resp.text) is images
+    assert "Direct API integration" in resp.text
+    assert "/chat/completions" in resp.text
+    assert "at most two images" in resp.text
+    assert "4 MP" in resp.text
+    if not embeddings:
+        assert "keep your existing local indexes and documents" in resp.text
+    if not images:
+        assert "Image generation/editing is not offered" in resp.text

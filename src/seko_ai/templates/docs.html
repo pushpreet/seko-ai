@@ -165,6 +165,26 @@ print(resp.choices[0].message.content)</code></pre>
     </div>
   </div>
 
+  {% if not embedding_enabled or not image_generation_enabled %}
+  <div class="rounded-lg border border-amber-900/70 bg-amber-950/20 p-4 text-sm">
+    <h2 class="font-medium text-slate-200">Available capabilities</h2>
+    {% if not image_generation_enabled %}
+    <p class="mt-1 text-slate-300">Image generation/editing is not offered by this deployment.</p>
+    {% endif %}
+    {% if not embedding_enabled %}
+    <p class="mt-1 text-slate-300">
+      Embedding-based search and code indexing are not offered. Disable automatic indexing
+      in existing clients; keep your existing local indexes and documents.
+    </p>
+    {% endif %}
+    <p class="mt-1 text-slate-400">
+      Chat, coding, and image input for screenshot inspection remain available. These
+      capability changes do not require rotating your API key.
+    </p>
+  </div>
+  {% endif %}
+
+  {% if image_generation_enabled %}
   <!-- Image generation and editing -->
   <div id="image-generation" class="space-y-4 scroll-mt-20">
     <div>
@@ -172,8 +192,8 @@ print(resp.choices[0].message.content)</code></pre>
       <p class="mt-1 max-w-2xl text-sm text-slate-400">
         Generate, edit, and inpaint images through the hosted interfaces or the OpenAI
         Images-compatible API. Your
-        <a href="/keys" class="underline hover:text-sky-400">same seko key</a> covers chat,
-        embeddings, MCP tools, and images; there is no separate image entitlement.
+        <a href="/keys" class="underline hover:text-sky-400">same seko key</a> covers every
+        model currently offered by the gateway; there is no separate image entitlement.
       </p>
     </div>
 
@@ -412,6 +432,9 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
     </div>
   </div>
 
+  {% endif %}
+
+  {% if embedding_enabled %}
   <!-- Codebase indexing (embeddings) -->
   <div id="codebase-indexing" class="space-y-4 scroll-mt-20">
     <div>
@@ -494,5 +517,6 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
     </div>
   </div>
 
+  {% endif %}
 </section>
 {% endblock %}

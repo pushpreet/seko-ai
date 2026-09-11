@@ -34,9 +34,11 @@ def docs_page(
             "user": request.session.get("user"),
             "llm_base_url": settings.llm_public_url,
             "llm_model": settings.llm_model,
+            "embedding_enabled": settings.llm_embedding_enabled,
             "embedding_model": settings.llm_embedding_model,
             "embedding_dimension": settings.llm_embedding_dimension,
             "image_model": settings.llm_image_model,
             "image_quality_model": settings.llm_image_quality_model,
+            "image_generation_enabled": settings.llm_image_generation_enabled,
         },
     )

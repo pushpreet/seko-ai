@@ -51,6 +51,14 @@ python -m seko_ai.management maintenance end
 `check-status` is intended for the host timer. Maintenance suppresses transition alerts and
 can send start/end notices according to configuration.
 
+Set `SEKO_LLM_EMBEDDING_ENABLED=false` and/or
+`SEKO_LLM_IMAGE_GENERATION_ENABLED=false` when retiring those gateway capabilities.
+The docs then remove the corresponding setup cards, API examples and image MCP tools,
+while retaining chat and Qwen image-input guidance. Both switches default to `true` for
+existing deployments. They control the published guidance, not LiteLLM routing: remove
+the retired gateway routes separately. Blank model names are not disable switches.
+Existing keys, conversations, uploads and vector indexes are not changed.
+
 ## Manual release
 
 There is no CI release workflow. `./publish.sh` is the sole supported image release path:
