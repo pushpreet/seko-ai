@@ -16,6 +16,26 @@ from seko_ai.app import create_app
 from seko_ai.config import Settings
 from seko_ai.db import Base
 
+# Deployment-specific settings have no defaults; tests supply placeholder values through
+# the environment so every ``Settings()`` construction is complete.
+REQUIRED_ENV = {
+    "SEKO_BASE_URL": "http://testserver",
+    "SEKO_SESSION_SECRET": "test-secret",
+    "SEKO_OIDC_ISSUER": "https://idp.example.test",
+    "SEKO_OIDC_USERS_GROUP": "llm_users",
+    "SEKO_OIDC_ADMINS_GROUP": "homelab_admins",
+    "SEKO_LITELLM_BASE_URL": "http://litellm.example.test:4000",
+    "SEKO_LLM_PUBLIC_URL": "https://llm.example.test/v1",
+    "SEKO_LLM_MODEL": "qwen3.6-27b",
+    "SEKO_STATUS_SCHEDULER_ENABLED": "false",
+}
+
+
+@pytest.fixture(autouse=True)
+def required_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    for key, value in REQUIRED_ENV.items():
+        monkeypatch.setenv(key, value)
+
 
 @pytest.fixture
 def settings() -> Settings:
@@ -25,6 +45,14 @@ def settings() -> Settings:
         database_url="sqlite://",
         oidc_client_secret="test-oidc-secret",
         litellm_master_key="sk-test-master",
+        chat_url="https://chat.example.test",
+        llm_embedding_enabled=True,
+        llm_embedding_model="embed",
+        llm_embedding_dimension=2560,
+        llm_image_generation_enabled=True,
+        llm_image_model="flux-2-klein-4b",
+        llm_image_quality_model="qwen-image-2512",
+        service_usage_aliases="hermes",
     )
 
 

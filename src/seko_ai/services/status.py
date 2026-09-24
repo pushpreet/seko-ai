@@ -1,9 +1,10 @@
 """LLM availability probing + status state machine.
 
-The ``check-status`` management command probes the API-key path (LiteLLM -> vLLM) every
-~60s (systemd timer). This module owns the pure logic: classify a probe, apply hysteresis
-across runs (state persists in ``service_state``), record transitions, and — outside a
-maintenance window — email all users on a real up<->down change.
+The in-process status scheduler (``seko_ai.scheduler``) probes the API-key path
+(LiteLLM -> model) every ``status_probe_interval`` seconds. This module owns the pure logic:
+classify a probe, apply hysteresis across runs (state persists in ``service_state``), record
+transitions, and — outside a maintenance window — email users on a real up<->down change.
+It also owns the maintenance window, including owner leases used by automation.
 
 Everything here is synchronous (tiny workload) so the CLI and the sync status routes share
 one code path.
@@ -11,11 +12,12 @@ one code path.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from seko_ai.config import Settings
@@ -87,6 +89,22 @@ def _probe_litellm_health(client: httpx.Client, settings: Settings) -> ProbeResu
 
 
 # --- State persistence -------------------------------------------------------------------
+
+
+def lock_state(session: Session) -> None:
+    """Serialize read-modify-write of ``service_state`` across processes.
+
+    On SQLite this takes the database write lock immediately (``BEGIN IMMEDIATE``), so two
+    concurrent CLI calls or schedulers cannot interleave. Call it before any other statement
+    in the session's transaction. Other backends rely on their own transaction isolation.
+    """
+    connection = session.connection()
+    if connection.dialect.name != "sqlite":
+        return
+    raw = connection.connection.dbapi_connection
+    # Already inside a write transaction (e.g. earlier DML in this session): the lock is held.
+    if raw is not None and not getattr(raw, "in_transaction", False):
+        session.execute(text("BEGIN IMMEDIATE"))
 
 
 def get_or_create_state(session: Session) -> ServiceState:
@@ -193,6 +211,9 @@ def start_maintenance(
     """Begin a manual maintenance window (suppresses up/down emails)."""
     state = get_or_create_state(session)
     if state.maintenance_active:
+        # An unowned start takes the window over as a manual one, so automation that leased
+        # it can no longer end it underneath the operator.
+        _set_owners(state, [])
         return state
     state.maintenance_active = True
     state.maintenance_started_at = _now()
@@ -216,11 +237,81 @@ def end_maintenance(
     state.maintenance_active = False
     state.maintenance_started_at = None
     state.maintenance_message = None
+    _set_owners(state, [])
     state.consecutive_failures = 0
     log.info("maintenance_ended")
     if notify and settings.status_notify_on_maintenance:
         notifications.notify_maintenance_end(session, settings)
     return state
+
+
+def maintenance_owners(state: ServiceState) -> list[str]:
+    """Return the lease owners of the current window (empty = manual or inactive)."""
+    if not state.maintenance_owners:
+        return []
+    owners = json.loads(state.maintenance_owners)
+    return sorted(str(owner) for owner in owners)
+
+
+def _set_owners(state: ServiceState, owners: list[str]) -> None:
+    state.maintenance_owners = json.dumps(sorted(set(owners))) if owners else None
+
+
+@dataclass(frozen=True)
+class LeaseResult:
+    """Outcome of acquiring or releasing a maintenance lease."""
+
+    state: ServiceState
+    owned: bool
+    window_ended: bool = False
+
+
+def acquire_maintenance(
+    session: Session,
+    settings: Settings,
+    *,
+    owner: str,
+    message: str | None = None,
+    notify: bool = True,
+) -> LeaseResult:
+    """Join (or open) a leased maintenance window on behalf of ``owner``.
+
+    A leased window stays active until every owner releases it. A window opened manually
+    (no owner) is never taken over: the result reports ``owned=False`` and nothing changes,
+    so automation cannot end an operator's window.
+    """
+    state = get_or_create_state(session)
+    if not state.maintenance_active:
+        start_maintenance(session, settings, message=message, notify=notify)
+        _set_owners(state, [owner])
+        return LeaseResult(state=state, owned=True)
+    owners = maintenance_owners(state)
+    if not owners:
+        return LeaseResult(state=state, owned=False)
+    _set_owners(state, [*owners, owner])
+    log.info("maintenance_lease_acquired", owner=owner)
+    return LeaseResult(state=state, owned=True)
+
+
+def release_maintenance(
+    session: Session,
+    settings: Settings,
+    *,
+    owner: str,
+    notify: bool = True,
+) -> LeaseResult:
+    """Release ``owner``'s lease; the window ends when the last owner releases it."""
+    state = get_or_create_state(session)
+    owners = maintenance_owners(state)
+    if not state.maintenance_active or owner not in owners:
+        return LeaseResult(state=state, owned=False)
+    remaining = [item for item in owners if item != owner]
+    log.info("maintenance_lease_released", owner=owner, remaining=len(remaining))
+    if remaining:
+        _set_owners(state, remaining)
+        return LeaseResult(state=state, owned=True)
+    end_maintenance(session, settings, notify=notify)
+    return LeaseResult(state=state, owned=True, window_ended=True)
 
 
 def _maybe_expire_maintenance(

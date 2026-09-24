@@ -35,9 +35,13 @@ def test_maintenance_start_status_and_end(
 ) -> None:
     quiet_settings = settings.model_copy(update={"status_notify_on_maintenance": False})
 
-    assert management.maintenance(db_session, quiet_settings, "start", "planned") == "active"
+    assert management.maintenance(db_session, quiet_settings, "start", "planned")["active"]
     state = status_service.get_or_create_state(db_session)
     assert state.maintenance_message == "planned"
-    assert management.maintenance(db_session, quiet_settings, "status", None) == "active"
-    assert management.maintenance(db_session, quiet_settings, "end", None) == "inactive"
+    status = management.maintenance(db_session, quiet_settings, "status", None)
+    assert status["active"]
+    db_session.commit()
+    reloaded = management.maintenance(db_session, quiet_settings, "status", None)
+    assert reloaded["started_at"].endswith("+00:00")
+    assert not management.maintenance(db_session, quiet_settings, "end", None)["active"]
     assert state.maintenance_message is None

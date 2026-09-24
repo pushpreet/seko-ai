@@ -258,7 +258,7 @@ print(resp.choices[0].message.content)</code></pre>
       <h3 class="font-medium text-slate-200">Hosted Open WebUI (recommended for people)</h3>
       <p class="mt-1 text-sm text-slate-400">
         Sign in with SSO and open
-        <a href="https://chat.pushprh.com/playground/images" target="_blank" rel="noopener" class="font-medium text-sky-300 underline hover:text-sky-200">chat.pushprh.com/playground/images</a>.
+        {% if chat_url %}<a href="{{ chat_url }}/playground/images" target="_blank" rel="noopener" class="font-medium text-sky-300 underline hover:text-sky-200">{{ chat_display }}/playground/images</a>{% else %}the hosted chat&rsquo;s <strong>Playground &rarr; Images</strong> page{% endif %}.
         Generated and edited media is owned by your authenticated account and kept separate
         from other users.
       </p>
@@ -332,7 +332,7 @@ with open("image.png", "wb") as image:
       <h3 class="font-medium text-slate-200">MCP agents</h3>
       <p class="mt-1 text-sm text-slate-400">
         Add a Streamable HTTP server at
-        <code class="select-all text-sky-300">https://llm.pushprh.com/mcp/</code> and send
+        <code class="select-all text-sky-300">{{ mcp_url }}</code> and send
         your seko key as <code>Authorization: Bearer &lt;YOUR_KEY&gt;</code>.
         The trailing slash is required; some clients do not preserve the POST body through
         the redirect from <code>/mcp</code>.
@@ -440,7 +440,7 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
     <div>
       <h2 class="text-xl font-semibold">Codebase indexing (Zoo Code)</h2>
       <p class="mt-1 max-w-2xl text-sm text-slate-400">
-        The homelab serves a local <strong>embeddings</strong> model so editor extensions can
+        This service provides a local <strong>embeddings</strong> model so editor extensions can
         do semantic &ldquo;find the code that does X&rdquo; retrieval over your whole repo.
         Your <a href="/keys" class="underline hover:text-sky-400">seko key</a> already works
         for embeddings &mdash; no separate key needed. The <strong>vector database</strong>
@@ -482,7 +482,7 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
       </ul>
       <p class="mt-1 text-xs text-slate-500">
         The index stays on your own disk &mdash; nothing about your code is stored on the
-        homelab, and you can always delete the collection and re-index.
+        server, and you can always delete the collection and re-index.
       </p>
     </div>
 
@@ -501,7 +501,7 @@ export OPENAI_API_KEY="&lt;YOUR_KEY&gt;"</code></pre>
       </ul>
       <p class="mt-1 text-sm text-slate-400">Then click <strong>Start indexing</strong>.</p>
       <p class="mt-2 text-xs text-slate-500">
-        Previously this page pointed Qdrant at a shared homelab instance. If you indexed
+        Previously this page pointed Qdrant at a shared server-side instance. If you indexed
         against that, your first local index starts from scratch &mdash; just re-run
         <strong>Start indexing</strong>.
       </p>

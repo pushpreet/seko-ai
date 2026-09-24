@@ -1,12 +1,19 @@
 # seko-ai
 
 Self-service API-key control plane for a shared local LLM service. A small group of trusted
-users signs in through Authelia, manages named LiteLLM virtual keys, reviews usage, reads
-client guidance, and sees current service status.
+users signs in through an OIDC provider, manages named LiteLLM virtual keys, reviews usage,
+reads client guidance, and sees current service status.
+
+seko-ai is a product: it knows nothing about any particular deployment. Its operator
+interface — every setting, port, volume, command, and endpoint — is documented in
+[`docs/configuration.md`](docs/configuration.md); changes and upgrade notes are in
+[`CHANGELOG.md`](CHANGELOG.md); [`examples/compose.yaml`](examples/compose.yaml) runs it
+standalone.
 
 ## What it provides
 
-- Authelia OIDC sign-in, gated by `llm_users`; `homelab_admins` grants admin views.
+- OIDC sign-in gated by a configured users group; a configured admins group grants admin
+  views.
 - Named API keys whose display identity and usage history survive token rotation.
 - One-time key reveal plus rotate, rename, and revoke actions.
 - 30-day per-user, per-key, and per-model usage; admins also see service and unattributed
@@ -39,23 +46,23 @@ migrations use SQLite batch mode; run them locally with `./tasks.sh migrate`.
 
 ## Operations
 
-The container entrypoint applies `alembic upgrade head` before starting Uvicorn.
+The container entrypoint applies `alembic upgrade head` before starting Uvicorn. The
+availability probe runs in-process; no external scheduler is needed.
 
 ```bash
-python -m seko_ai.management check-status
-python -m seko_ai.management maintenance start --message "planned work"
-python -m seko_ai.management maintenance status
-python -m seko_ai.management maintenance end
+seko-ai maintenance start --message "planned work"
+seko-ai maintenance start --owner my-automation --no-notify --json   # a lease
+seko-ai maintenance status --json
+seko-ai maintenance end
+seko-ai backup /data/seko-ai.db.bak
 ```
 
-`check-status` is intended for the host timer. Maintenance suppresses transition alerts and
-can send start/end notices according to configuration.
+See [`docs/configuration.md`](docs/configuration.md#operator-commands) for lease semantics
+and the JSON output.
 
-Set `SEKO_LLM_EMBEDDING_ENABLED=false` and/or
-`SEKO_LLM_IMAGE_GENERATION_ENABLED=false` when retiring those gateway capabilities.
-The docs then remove the corresponding setup cards, API examples and image MCP tools,
-while retaining chat and Qwen image-input guidance. Both switches default to `true` for
-existing deployments. They control the published guidance, not LiteLLM routing: remove
+`SEKO_LLM_EMBEDDING_ENABLED` and `SEKO_LLM_IMAGE_GENERATION_ENABLED` (default `false`)
+publish the corresponding setup cards, API examples and image MCP tools; chat and Qwen
+image-input guidance is always shown. They control the published guidance, not LiteLLM routing: remove
 the retired gateway routes separately. Blank model names are not disable switches.
 Existing keys, conversations, uploads and vector indexes are not changed.
 
@@ -63,7 +70,8 @@ Existing keys, conversations, uploads and vector indexes are not changed.
 
 There is no CI release workflow. `./publish.sh` is the sole supported image release path:
 
-1. Set the version in `pyproject.toml`.
+1. Set the version in `pyproject.toml` and `src/seko_ai/__init__.py`, and add a
+   `CHANGELOG.md` entry with upgrade notes for any configuration change.
 2. Authenticate with `docker login ghcr.io`.
 3. Commit the release so the worktree is clean.
 4. Run `./publish.sh`.

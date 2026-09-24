@@ -8,11 +8,11 @@ from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from seko_ai import models  # noqa: F401  (register models on Base.metadata)
-from seko_ai.config import get_settings
+from seko_ai.config import get_database_settings
 from seko_ai.db import Base
 
 config = context.config
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+config.set_main_option("sqlalchemy.url", get_database_settings().database_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

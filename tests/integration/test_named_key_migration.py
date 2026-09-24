@@ -9,7 +9,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from seko_ai.config import get_settings
+from seko_ai.config import get_database_settings, get_settings
 
 PREVIOUS_REVISION = "a1b2c3d4e5f6"
 
@@ -27,6 +27,7 @@ def test_named_key_migration_backfills_and_downgrades(
     database = tmp_path / "migration.db"
     monkeypatch.setenv("SEKO_DATABASE_URL", f"sqlite:///{database}")
     get_settings.cache_clear()
+    get_database_settings.cache_clear()
     config = _alembic_config(database)
     command.upgrade(config, PREVIOUS_REVISION)
 
@@ -90,3 +91,4 @@ def test_named_key_migration_backfills_and_downgrades(
     assert "identity_id" not in columns
     assert "api_key_identities" not in tables
     get_settings.cache_clear()
+    get_database_settings.cache_clear()

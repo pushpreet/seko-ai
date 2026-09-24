@@ -9,7 +9,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 
-from seko_ai.config import get_settings
+from seko_ai.config import get_database_settings, get_settings
 
 PREVIOUS_REVISION = "f3a8c1d2e4b6"
 
@@ -101,6 +101,7 @@ def test_removal_preserves_normal_keys_users_and_status(
     database = tmp_path / "workspace-removal.db"
     monkeypatch.setenv("SEKO_DATABASE_URL", f"sqlite:///{database}")
     get_settings.cache_clear()
+    get_database_settings.cache_clear()
     config = _alembic_config(database)
     command.upgrade(config, PREVIOUS_REVISION)
     _seed_previous_revision(database)
@@ -132,6 +133,7 @@ def test_removal_preserves_normal_keys_users_and_status(
         ).fetchall() == [(70, "unknown", "up", "recovered")]
 
     get_settings.cache_clear()
+    get_database_settings.cache_clear()
 
 
 def test_downgrade_restores_schema_only(
@@ -141,6 +143,7 @@ def test_downgrade_restores_schema_only(
     database = tmp_path / "workspace-schema-downgrade.db"
     monkeypatch.setenv("SEKO_DATABASE_URL", f"sqlite:///{database}")
     get_settings.cache_clear()
+    get_database_settings.cache_clear()
     config = _alembic_config(database)
     command.upgrade(config, PREVIOUS_REVISION)
     _seed_previous_revision(database)
@@ -160,3 +163,4 @@ def test_downgrade_restores_schema_only(
         ).fetchall() == [(40, None, "normal-token")]
 
     get_settings.cache_clear()
+    get_database_settings.cache_clear()

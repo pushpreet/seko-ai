@@ -1,0 +1,17 @@
+# Standalone seko-ai deployment. Copy .env.example to .env, fill in the placeholders, then:
+#   docker compose up -d
+# Put a TLS reverse proxy in front of port 8080 for anything beyond local testing.
+services:
+  seko-ai:
+    image: ghcr.io/pushpreet/seko-ai:${SEKO_VERSION:?set SEKO_VERSION}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      SEKO_DATABASE_URL: "sqlite:////data/seko-ai.db"
+    ports:
+      - "8080:8080"
+    volumes:
+      # Must be writable by uid 1000 (e.g. `mkdir data && sudo chown 1000:1000 data`).
+      - ./data:/data
+    security_opt:
+      - no-new-privileges:true

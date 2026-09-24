@@ -8,7 +8,7 @@ from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from seko_ai.config import get_settings
+from seko_ai.config import get_database_settings
 
 
 class Base(DeclarativeBase):
@@ -16,7 +16,7 @@ class Base(DeclarativeBase):
 
 
 def _make_engine(database_url: str | None = None):  # type: ignore[no-untyped-def]
-    url = database_url or get_settings().database_url
+    url = database_url or get_database_settings().database_url
     connect_args = {"check_same_thread": False} if url.startswith("sqlite") else {}
     return create_engine(url, connect_args=connect_args, future=True)
 

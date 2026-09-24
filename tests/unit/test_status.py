@@ -22,6 +22,7 @@ def settings() -> Settings:
         litellm_master_key="sk-test-master",
         status_fail_threshold=3,
         resend_api_key="re_test",
+        alert_email_from="alerts@example.test",
         base_url="http://testserver",
     )
 
@@ -231,6 +232,6 @@ def test_check_status_command(
 
 
 def test_maintenance_command(db_session: Session, settings: Settings) -> None:
-    assert management.maintenance(db_session, settings, "start", "msg") == "active"
-    assert management.maintenance(db_session, settings, "status", None) == "active"
-    assert management.maintenance(db_session, settings, "end", None) == "inactive"
+    assert management.maintenance(db_session, settings, "start", "msg")["active"] is True
+    assert management.maintenance(db_session, settings, "status", None)["active"] is True
+    assert management.maintenance(db_session, settings, "end", None)["active"] is False

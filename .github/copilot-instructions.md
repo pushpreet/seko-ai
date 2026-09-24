@@ -8,8 +8,10 @@ status, notifications, and maintenance.
 
 - FastAPI + Jinja/HTMX, with minimal browser JavaScript.
 - SQLite + SQLAlchemy + Alembic; production migrations run at container startup.
-- Authelia OIDC. Groups must be read from the userinfo endpoint: `llm_users` grants access
-  and `homelab_admins` grants admin views.
+- OIDC (tested with Authelia). Groups must be read from the userinfo endpoint:
+  `SEKO_OIDC_USERS_GROUP` grants access and `SEKO_OIDC_ADMINS_GROUP` grants admin views.
+- In-process status scheduler (`scheduler.py`) started from the app lifespan; recurring work
+  never depends on an external timer.
 - LiteLLM admin API for key creation/revocation and usage activity.
 - Prometheus `/metrics`, persisted service status/incidents, and Resend notifications.
 
@@ -54,9 +56,19 @@ worktree, checks that the GHCR tag is unused, runs `./tasks.sh check`, builds wi
 restrictive `.dockerignore`, pushes the version tag, and prints its digest. Do not weaken
 those checks or add a second publishing path.
 
+## Product boundary
+
+seko-ai is a product; any deployment (including the author's homelab) is just one consumer.
+`docs/configuration.md` is the public contract: every setting, volume, port, command, JSON
+output, and endpoint a deployment may rely on. Keep it, `CHANGELOG.md` (with upgrade notes;
+breaking config change = minor bump below 1.0, major after), `.env.example`, and
+`examples/compose.yaml` in sync with any change. Never add deployment hostnames, IP
+addresses, network names, host paths, or group names as defaults, in code, templates, or
+tests (use `example.test`). Never ship deployment secrets.
+
 ## Critical invariants
 
-1. Fetch Authelia userinfo after token exchange so group authorization is accurate.
+1. Fetch OIDC userinfo after token exchange so group authorization is accurate.
 2. Never persist or redisplay plaintext virtual keys.
 3. Keep key operations scoped to the signed-in database user.
 4. Keep normal keys available to all current and future proxy models.

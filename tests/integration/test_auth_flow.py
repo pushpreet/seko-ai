@@ -16,7 +16,7 @@ def _patch_provider(client: TestClient, claims: dict[str, Any]) -> None:
         return {"userinfo": claims}
 
     async def fake_authorize_redirect(request: Any, redirect_uri: str) -> RedirectResponse:
-        return RedirectResponse(url=f"https://auth.pushprh.com/authorize?rd={redirect_uri}")
+        return RedirectResponse(url=f"https://idp.example.test/authorize?rd={redirect_uri}")
 
     provider.authorize_access_token = fake_authorize_access_token
     provider.authorize_redirect = fake_authorize_redirect
@@ -26,7 +26,7 @@ def test_login_redirects_to_idp(client: TestClient) -> None:
     _patch_provider(client, {})
     resp = client.get("/auth/login", follow_redirects=False)
     assert resp.status_code in (302, 307)
-    assert "auth.pushprh.com/authorize" in resp.headers["location"]
+    assert "idp.example.test/authorize" in resp.headers["location"]
 
 
 def test_callback_allows_member_and_sets_session(client: TestClient) -> None:

@@ -93,8 +93,9 @@ class ServiceStatus(enum.StrEnum):
 class ServiceState(TimestampMixin, Base):
     """Singleton (id=1) tracking current LLM availability + the maintenance window.
 
-    Written by the ``check-status`` management command (probe + hysteresis) and by the admin
-    maintenance toggle; read by the status page/banner. Kept as one row for simplicity.
+    Written by the status scheduler / ``check-status`` command (probe + hysteresis) and by
+    the maintenance CLI and admin toggle; read by the status page/banner. One row, for
+    simplicity.
     """
 
     __tablename__ = "service_state"
@@ -118,6 +119,8 @@ class ServiceState(TimestampMixin, Base):
         DateTime(timezone=True), nullable=True
     )
     maintenance_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # JSON list of lease owners. Empty/NULL = a manual window (ends only on an unowned end).
+    maintenance_owners: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class StatusEvent(TimestampMixin, Base):

@@ -102,14 +102,14 @@ def test_docs_includes_image_generation_and_editing(client: TestClient) -> None:
 def test_docs_includes_hosted_image_surfaces(client: TestClient) -> None:
     _login(client, ["llm_users"])
     resp = client.get("/docs")
-    assert "https://chat.pushprh.com/playground/images" in resp.text
+    assert "https://chat.example.test/playground/images" in resp.text
     assert "Integrations &rarr; Image" in resp.text
     assert "owned by your authenticated account" in resp.text
     assert "intentionally absent from the chat model picker" in resp.text
     assert "Hermes Discord and Desktop" in resp.text
     assert "exactly one source" in resp.text
     assert "does not expose masks or multiple reference images" in resp.text
-    assert "https://llm.pushprh.com/mcp/" in resp.text
+    assert "https://llm.example.test/mcp/" in resp.text
     assert "The trailing slash is required" in resp.text
     assert "image-image_generate" in resp.text
     assert "image-image_edit" in resp.text

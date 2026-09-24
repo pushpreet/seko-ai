@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import HTTPException
@@ -15,6 +18,7 @@ from seko_ai import __version__
 from seko_ai.auth import create_oauth, get_current_user
 from seko_ai.config import Settings, get_settings
 from seko_ai.logging_config import configure_logging
+from seko_ai.scheduler import status_scheduler
 
 _PACKAGE_DIR = Path(__file__).resolve().parent
 TEMPLATES = Jinja2Templates(directory=str(_PACKAGE_DIR / "templates"))
@@ -26,6 +30,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
     configure_logging(debug=settings.debug)
 
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        async with status_scheduler(settings):
+            yield
+
     # Disable FastAPI's built-in Swagger/ReDoc so /docs can serve the user guide instead
     # (this control plane exposes no public programmatic API that needs interactive docs).
     app = FastAPI(
@@ -34,6 +43,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         debug=settings.debug,
         docs_url=None,
         redoc_url=None,
+        lifespan=lifespan,
     )
     app.state.settings = settings
     app.state.oauth = create_oauth(settings)
@@ -79,4 +89,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return app
 
 
-app = create_app()
+def __getattr__(name: str) -> Any:
+    """Build the ASGI ``app`` lazily, so importing this module needs no configuration."""
+    if name == "app":
+        application = create_app()
+        globals()["app"] = application
+        return application
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
